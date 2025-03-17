@@ -1,0 +1,32 @@
+<!-- Index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <base target="_top">
+    
+    <?!= HtmlService.createHtmlOutputFromFile('css').getContent(); ?>
+
+    <!-- <link href="https://fonts.googleapis.com/css?family=Inter:200,400,500,600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Inter+Tight:200,400,500,600&display=swap" rel="stylesheet"> -->
+    <!-- <link href="https://raw.githubusercontent.com/tobiasahlin/SpinKit/master/spinkit.min.css" rel="stylesheet"> -->
+
+  </head>
+
+<body>
+  
+  <iframe src="http://localhost:5173/iframe" frameborder="0"></iframe>
+  <!-- <iframe src="http://pipewriter.io/gdocs" frameborder="0"></iframe> -->
+  <!-- <iframe src="https://pipewriter.vercel.app/app" frameborder="0"></iframe> -->
+  
+  <!-- <iframe src="http://localhost:5173/app-iframe" frameborder="0"></iframe> -->
+  <!-- <iframe src="https://pipewriter.vercel.app/app-iframe" frameborder="0"></iframe> -->
+
+
+<?!= HtmlService.createHtmlOutputFromFile('js').getContent(); ?>
+</body>
+
+</html>
