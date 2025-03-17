@@ -3,27 +3,7 @@ function onInstall(e) {
   onOpen(e);
 }
 
-function onOpen() {
-  var ui = DocumentApp.getUi();
-  ui.createMenu("Pipewriter")
-    .addItem("App", "showFormInSidebar")
-    .addSeparator()
-		.addItem("HTML to start ↑", "dropHtmlStart")
-		.addItem("HTML to end ↓", "dropHtmlEnd")
-		.addItem("Strip HTML tags", "stripHtmlTags")
-		.addItem("Delete HTML", "stripHtmlAll")
-		.addItem("HTML to clipboard", "dropHtmlClipboard")
-    .addSeparator()
-    .addItem("format to HTML", "doc2html")
-    .addItem("delete </>", "deleteHTMLtags")
-    .addItem("HTML to Pipe", "html2doc")
-    .addItem("Gray Background", "graybg")
-    .addSeparator()
-    .addItem("aiReadDoc()", "aiReadDoc")
-    .addItem("list-2", "aiReadDoc")
-    .addItem("deleteColumnWithCursor", "deleteColumnWithCursor")
-    .addToUi();
-}
+
 
 function showFormInSidebar() {      
   var form = HtmlService.createTemplateFromFile('Index').evaluate().setTitle('Pipewriter');
@@ -174,4 +154,45 @@ try{
 
 for (var id in uiElements) {
   console.log("plain text for '" + id + "': " + uiElements[id].textContent);
+}
+
+
+function onOpen() {
+	var ui = DocumentApp.getUi();
+	ui.createMenu("Pipewriter")
+		.addItem("App", "showFormInSidebar")
+		.addSeparator()
+		.addItem("HTML to start ↑", "dropHtmlStart")
+		.addItem("HTML to end ↓", "dropHtmlEnd")
+		.addItem("Strip HTML tags", "stripHtmlTags")
+		.addItem("Delete HTML", "stripHtmlAll")
+		.addItem("HTML to clipboard", "dropHtmlClipboard")
+		.addSeparator()
+		.addItem("format to HTML", "doc2html")
+		.addItem("delete </>", "deleteHTMLtags")
+		.addItem("HTML to Pipe", "html2doc")
+		.addItem("Gray Background", "graybg")
+		.addSeparator()
+		.addItem("aiReadDoc()", "aiReadDoc")
+		.addItem("list-2", "aiReadDoc")
+		.addItem("deleteColumnWithCursor", "deleteColumnWithCursor")
+		.addToUi();
+}
+
+// Wrapper functions for menu items
+function dropHtmlStart() {
+	return dropHtml({ position: 'start' });
+}
+function dropHtmlEnd() {
+	return dropHtml({ position: 'end' });
+}
+function dropHtmlClipboard() {
+	return dropHtml({ copyToClipboard: true });
+}
+
+function showFormInSidebar() {
+	var form = HtmlService.createTemplateFromFile("Index")
+		.evaluate()
+		.setTitle("Pipewriter");
+	DocumentApp.getUi().showSidebar(form);
 }
