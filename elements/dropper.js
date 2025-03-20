@@ -1,141 +1,160 @@
-// elements/dropper.js - Element dropper functionality
+// elements/dropper.js - Updated Element dropper functionality
 
-// Attach to global dropper object from Code.js
+// Expose global dropper object from Code.js
 var dropper = dropper || {};
 
-// #1 data model for UI elements
-function createUIElement() {
-	return {
-		textContent: '',
-		formattedContent: '',
-		wordCount: 0,
-		rowCount: 0,
-		cellCount: 0
-	};
-}
-
-var uiElementIds = [
-	'styleguide', 'container-center', 'background-empty', 'background-light', 'container-center-dark', 'background-empty-dark',
-	'background-light-dark', 'hero', 'zz-left', 'zz-right', 'zz-left-dark', 'zz-right-dark', 'hero-dark',
-	'blurbs-3', 'blurbs-4', 'blurbs-vert-3', 'blurbs-3-dark', 'blurbs-vert-3-dark', 'list-1',
-	'list-2', 'list-3', 'list-1-dark', 'list-2-dark', 'list-3-dark', 'button-left', 'button-center',
-	'button-right', 'button-2-left', 'button-2-center', 'button-2-right', 'button-left-dark',
-	'button-center-dark', 'button-right-dark', 'button-2-left-dark', 'button-2-center-dark', 'button-2-right-dark',
-	'cards-2-left', 'cards-2-center', 'cards-3', 'cards-2x2', 'pricing-cards', 'cards-6', 'cards-2-left-dark',
-	'cards-2-center-dark', 'cards-3-dark', 'cards-2x2-dark', 'pricing-cards-dark', 'cards-6-dark',
-];
-
-var uiElements = {};
-
-uiElementIds.forEach(function (id) {
-	uiElements[id] = createUIElement();
-});
-
-// #2 get all UI element IDs from master
-function populateUIElements() {
-	// https://docs.google.com/document/d/1X-mEWo2wuRcVZdA8Y94cFMpUO6tKm8GLxY3ZA8lyulk/edit?usp=sharing
-	var masterDocId = '1X-mEWo2wuRcVZdA8Y94cFMpUO6tKm8GLxY3ZA8lyulk';
-	// ivan.karaman
-	//  var masterDocId = '1uMdieQCJeBQCvkHs7w9ZiVeEB2_cglkF7ZLgeqvxL0U';
-
-	var masterBody = DocumentApp.openById(masterDocId).getBody();
-
-	// Get the total number of child elements in the master document's body.
-	var numElements = masterBody.getNumChildren();
-
-	var currentId = null;
-
-	// Iterate over all the child elements in the master document's body.
-	for (var i = 0; i < numElements; i++) {
-		var element = masterBody.getChild(i);
-
-		// If the element is a paragraph, check if its text is a UI element ID.
-		if (element.getType() == DocumentApp.ElementType.PARAGRAPH) {
-			var text = element.getText();
-			if (uiElements.hasOwnProperty(text)) {
-				currentId = text; // Remember the ID to associate the next table with it.
-			}
-		}
-		// If the element is a table and there's a current ID remembered, add the table to the corresponding UI element in uiElements.
-		else if (element.getType() == DocumentApp.ElementType.TABLE && currentId !== null) {
-			var table = element.copy();
-			uiElements[currentId].table = table; // Save a copy of the table.
-
-			// numeric data about table content
-			uiElements[currentId].wordCount = table.getText().split(' ').length;
-			uiElements[currentId].rowCount = table.getNumRows();
-			uiElements[currentId].cellCount = table.getRow(0).getNumCells();
-			// TODO add more properties
-
-			// save text content in the object
-			var textContent = "";
-			for (var r = 0; r < table.getNumRows(); r++) {
-				var row = table.getRow(r);
-				for (var c = 0; c < row.getNumCells(); c++) {
-					var cell = row.getCell(c);
-					textContent += cell.getText() + " "; // Add a space between texts from different cells.
-				}
-			}
-			uiElements[currentId].textContent = textContent.trim(); // Remove the trailing space and save the text content.
-
-			currentId = null; // Reset the current ID.
-		}
-	}
-}
-
-// #3 wireframe with elements to cursor
-dropper.getElement = function (uiElementId) {
-	// if uiElementId is not found in uiElements, return with an error message
-	if (!uiElements[uiElementId]) {
-		console.log("Invalid UI element requested: " + uiElementId);
-		return false;
-	}
-
-	// Retrieve the cursor from the active document
-	var cursor = DocumentApp.getActiveDocument().getCursor();
-
-	// if no cursor is present, return with an alert message
-	if (!cursor) {
-		DocumentApp.getUi().alert('Make sure the cursor is blinking');
-		return false;
-	}
-
-	var cursorElem = cursor.getElement();
-	var parent = cursorElem.getParent();
-	var body = DocumentApp.getActiveDocument().getBody();
-
-	try {
-		// Get the child index of the element where the cursor is.
-		var offset = parent.getChildIndex(cursorElem);
-	} catch (e) {
-		console.log('Error: ', e);
-		// If an error occurs (e.g., cursor not inside any child), set offset to 0.
-		var offset = 0;
-	}
-
-	// Copy the table from the corresponding UI element in uiElements.
-	var masterTable = uiElements[uiElementId].table.copy();
-
-	// Check if the cursor is inside a table cell.
-	if (parent.getType() == DocumentApp.ElementType.TABLE_CELL) {
-		parent.insertTable(offset + 1, masterTable);
-	} else {
-		body.insertTable(offset + 1, masterTable);
-	}
-
-	// Return the UI element info as a simple, JSON-compatible object
-	return {
-		textContent: cursorElem.asText().getText(),
-		wordCount: cursorElem.asText().getText().split(' ').length,
-	}
+// Master documents reference
+const MASTER_DOCS = {
+	light: "1X-mEWo2wuRcVZdA8Y94cFMpUO6tKm8GLxY3ZA8lyulk",
+	dark: "1X-mEWo2wuRcVZdA8Y94cFMpUO6tKm8GLxY3ZA8lyulk" // Use same doc for now
 };
 
-// The critical initialization hack: Try to populate UI elements at load time
-try {
-	populateUIElements();
-	for (var id in uiElements) {
-		console.log("plain text for '" + id + "': " + uiElements[id].textContent);
+// Default theme
+const DEFAULT_THEME = "light";
+
+// Helper function to get element from master document
+function getElementFromMaster(elementId, theme = DEFAULT_THEME) {
+	try {
+		const masterDoc = DocumentApp.openById(MASTER_DOCS[theme]);
+		const masterBody = masterDoc.getBody();
+		let foundElement = false;
+		let table = null;
+
+		// Find elementId paragraph and its table
+		const numElements = masterBody.getNumChildren();
+		for (let i = 0; i < numElements; i++) {
+			const element = masterBody.getChild(i);
+
+			if (element.getType() == DocumentApp.ElementType.PARAGRAPH) {
+				if (element.getText().trim() === elementId) {
+					foundElement = true;
+					Logger.log('Found element: ' + elementId);
+				}
+			} else if (foundElement && element.getType() == DocumentApp.ElementType.TABLE) {
+				table = element.copy();
+				Logger.log('Found table for: ' + elementId);
+				break;
+			}
+		}
+
+		return table;
+
+	} catch (error) {
+		Logger.log('Failed to get element from master: ' + error);
+		return null;
 	}
-} catch (e) {
-	console.error("Error during initialization:", e);
 }
+
+// Insert table at cursor position with enhanced positioning
+function insertElementTable(table) {
+	if (!table) {
+		throw new Error('No table provided');
+	}
+
+	const doc = DocumentApp.getActiveDocument();
+	const cursor = doc.getCursor();
+
+	if (!cursor) {
+		throw new Error('No cursor position found');
+	}
+
+	const element = cursor.getElement();
+	const parent = element.getParent();
+
+	try {
+		const offset = parent.getChildIndex(element);
+
+		let insertedTable;
+
+		// Insert table based on context
+		if (parent.getType() == DocumentApp.ElementType.TABLE_CELL) {
+			insertedTable = parent.insertTable(offset + 1, table);
+		} else {
+			insertedTable = doc.getBody().insertTable(offset + 1, table);
+		}
+
+		// Position cursor after the inserted table
+		if (insertedTable) {
+			try {
+				// Get index of inserted table
+				const body = doc.getBody();
+				const tableIndex = body.getChildIndex(insertedTable);
+
+				// Try to insert and position cursor at a new paragraph after table
+				let cursorPosition;
+
+				if (tableIndex < body.getNumChildren() - 1) {
+					// If there's an element after the table, position cursor there
+					const nextElement = body.getChild(tableIndex + 1);
+					cursorPosition = doc.newPosition(nextElement, 0);
+				} else {
+					// If table is last element, append paragraph and position cursor there
+					const newPara = body.appendParagraph('');
+					cursorPosition = doc.newPosition(newPara, 0);
+				}
+
+				// Set the new cursor position
+				doc.setCursor(cursorPosition);
+
+				Logger.log('Cursor positioned after table');
+				return {
+					success: true,
+					cursorMoved: true,
+					tableIndex: tableIndex
+				};
+			} catch (error) {
+				Logger.log('Error positioning cursor: ' + error);
+				return {
+					success: true,
+					cursorMoved: false,
+					error: error.toString()
+				};
+			}
+		}
+	} catch (error) {
+		Logger.log('Error inserting table: ' + error);
+		throw error;
+	}
+
+	return false;
+}
+
+// Main element insertion function called by client
+dropper.getElement = function (params) {
+	try {
+		// Support both object parameters and direct elementId
+		const elementId = typeof params === 'object' ? params.elementId : params;
+		const theme = (typeof params === 'object' && params.theme) ? params.theme : DEFAULT_THEME;
+
+		Logger.log(`Getting element: ${elementId} (${theme})`);
+
+		// Adjust elementId for dark theme if needed
+		const adjustedElementId = theme === "dark" ? `${elementId}-dark` : elementId;
+
+		// Get element from master document
+		const table = getElementFromMaster(adjustedElementId, theme);
+		if (!table) {
+			throw new Error(`Element ${adjustedElementId} not found`);
+		}
+
+		// Insert table and position cursor
+		const result = insertElementTable(table);
+		if (!result) {
+			throw new Error('Failed to insert table');
+		}
+
+		return {
+			success: true,
+			message: 'Element inserted successfully',
+			cursorMoved: result.cursorMoved,
+			tableIndex: result.tableIndex
+		};
+
+	} catch (error) {
+		Logger.log('Error in getElement: ' + error);
+		return {
+			success: false,
+			error: error.message || 'Failed to insert element'
+		};
+	}
+};
