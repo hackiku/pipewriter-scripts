@@ -1,38 +1,138 @@
 <!-- js.html -->
 
 <script>
-  const actionMap = {
-    changeBg: (payload) => google.script.run.withSuccessHandler(() => console.log('Background changed')).withFailureHandler((error) => console.error('Failed to change background:', error)).changeBg(payload.color),
-    deleteColumnWithCursor: () => google.script.run.withSuccessHandler(() => console.log('Column deleted')).deleteColumnWithCursor(),
-    html2doc: () => google.script.run.withSuccessHandler(() => console.log('HTML to Doc conversion successful')).html2doc(),
-    deleteHTMLtags: () => google.script.run.withSuccessHandler(() => console.log('HTML tags deleted')).deleteHTMLtags(),
-    doc2html: () => google.script.run.withSuccessHandler(() => console.log('Doc to HTML conversion successful')).doc2html(),
-    getElement: (payload) => google.script.run
-      .withSuccessHandler(() => console.log('Element fetched', payload))
-      .withFailureHandler((error) => console.error('Failed to fetch element:', error))
-      .getElement(payload.elementId),
-    aiReadDoc: () => google.script.run.withSuccessHandler(() => console.log('Doc read for AI')).aiReadDoc(),
-  };
+	const actionMap = {
+		// colors
+		changeBg: (payload) => google.script.run
+			.withSuccessHandler((response) => {
+				console.log('Background changed:', response);
+				sendResponse('changeBg', true, null, response);
+			})
+			.withFailureHandler((error) => {
+				console.error('Failed to change background:', error);
+				sendResponse('changeBg', false, error.toString());
+			})
+			.changeBg(payload.color),
+		getCurrentColor: () => google.script.run
+			.withSuccessHandler((response) => {
+				console.log('Current color:', response);
+				sendResponse('getCurrentColor', true, null, response);
+			})
+			.withFailureHandler((error) => {
+				console.error('Failed to get current color:', error);
+				sendResponse('getCurrentColor', false, error.toString());
+			})
+			.getCurrentColor(),
 
-  window.addEventListener('message', function(event) {
-    // Safety check
-    if (!['http://localhost:5173', 'https://pipewriter.io', 'https://pipewriter.vercel.app'].includes(event.origin)) {
-      console.error('Message from disallowed origin:', event.origin);
-      return;
-    }
+		// elements
+		getElement: (payload) => {
+			if (!payload?.elementId) {
+				console.error('No elementId provided');
+				sendResponse('getElement', false, 'No elementId provided');
+				return;
+			}
 
-    try {
-      const { action, payload } = JSON.parse(event.data);
+			google.script.run
+				.withSuccessHandler((response) => {
+					console.log('Element operation result:', response);
+					// Send success response back to iframe
+					sendResponse('getElement', true, null, response);
+				})
+				.withFailureHandler((error) => {
+					console.error('Failed to get element:', error);
+					// Send error response back to iframe
+					sendResponse('getElement', false, error.toString());
+				})
+				.getElement({
+					elementId: payload.elementId,
+					theme: payload.theme || 'light'
+				});
+		},
 
-      // Check if the action exists in the map and call it
-      if (action in actionMap) {
-        actionMap[action](payload);
-      } else {
-        console.error("Action not recognized:", action);
-      }
-    } catch (error) {
-      console.error("Error parsing message:", error);
-    }
-  });
+		// ai/html
+		dropHtml: (payload) => {
+			google.script.run
+				.withSuccessHandler((response) => {
+					sendResponse('dropHtml', true, null, response);
+				})
+				.dropHtml({
+					position: payload?.position || 'end',
+					copyToClipboard: payload?.copyToClipboard || false,
+					prompt: payload?.prompt
+				});
+		},
 
+		stripHtml: (payload) => {
+			google.script.run
+				.withSuccessHandler((response) => {
+					if (response.success) {
+						const message = response.removedCount
+							? `Removed ${response.removedCount} HTML elements`
+							: response.replacedCount
+								? `Removed ${response.replacedCount} HTML tags`
+								: 'HTML stripped successfully';
+
+						sendResponse('stripHtml', true, null, {
+							...response,
+							message
+						});
+					} else {
+						sendResponse('stripHtml', false, response.error);
+					}
+				})
+				.withFailureHandler((error) => {
+					console.error('Failed to strip HTML:', error);
+					sendResponse('stripHtml', false, error.toString());
+				})
+				.stripHtml({
+					all: payload?.all || false,
+					copyToClipboard: payload?.copyToClipboard || false
+				});
+		},
+	};
+
+	// Helper function to send responses back to iframe
+	function sendResponse(action, success, error = null, data = null) {
+		const iframe = document.querySelector('iframe');
+		if (iframe?.contentWindow) {
+			iframe.contentWindow.postMessage(JSON.stringify({
+				action: `${action}Response`,
+				success,
+				error: error?.toString(),
+				data
+			}), '*');
+		}
+	}
+
+	// Message handler with origin validation
+	window.addEventListener('message', function (event) {
+		const allowedOrigins = [
+			'http://localhost:5173',
+			'https://pipewriter.io',
+			'https://pipewriter.vercel.app'
+		];
+
+		if (!allowedOrigins.includes(event.origin)) {
+			console.error('Message from disallowed origin:', event.origin);
+			return;
+		}
+
+		try {
+			const { action, payload } = JSON.parse(event.data);
+			console.log(`Received action: ${action}`, payload);
+
+			if (action in actionMap) {
+				actionMap[action](payload);
+			} else {
+				console.error("Action not recognized:", action);
+				sendResponse(action, false, "Action not recognized");
+			}
+		} catch (error) {
+			console.error("Error processing message:", error);
+			sendResponse('error', false, error.toString());
+		}
+	});
+
+	// Log when loaded
+	console.log('Pipewriter script loaded');
 </script>

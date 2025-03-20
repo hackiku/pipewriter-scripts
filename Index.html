@@ -3,25 +3,37 @@
 <!DOCTYPE html>
 <html lang="en">
 
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <base target="_top">
-    
-    <?!= HtmlService.createHtmlOutputFromFile('css').getContent(); ?>
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<base target="_top">
 
-		
-    <!-- <link href="https://fonts.googleapis.com/css?family=Inter:200,400,500,600&display=swap" rel="stylesheet"> -->
-		<!-- <link href="https://fonts.googleapis.com/css?family=Inter+Tight:200,400,500,600&display=swap" rel="stylesheet"> -->
-    <!-- <link href="https://raw.githubusercontent.com/tobiasahlin/SpinKit/master/spinkit.min.css" rel="stylesheet"> -->
+	<?!= HtmlService.createHtmlOutputFromFile('css').getContent(); ?>
 
-  </head>
+	<!-- <link href="https://fonts.googleapis.com/css?family=Inter:200,400,500,600&display=swap" rel="stylesheet"> -->
+	<!-- <link href="https://fonts.googleapis.com/css?family=Inter+Tight:200,400,500,600&display=swap" rel="stylesheet"> -->
+	<!-- <link href="https://raw.githubusercontent.com/tobiasahlin/SpinKit/master/spinkit.min.css" rel="stylesheet"> -->
+
+</head>
 
 <body>
-	<iframe src="http://localhost:5173/" frameborder="0"></iframe>
-  <!-- <iframe src="http://localhost:5173/iframe" frameborder="0"></iframe> -->
+	<iframe id="pipewriter-frame" src="http://localhost:5173" frameborder="0"
+		style="width: 100%; height: 100%; border: none; position: absolute;" allow="clipboard-write">
+	</iframe>
 
-<?!= HtmlService.createHtmlOutputFromFile('js').getContent(); ?>
+	<?!= HtmlService.createHtmlOutputFromFile('js').getContent(); ?>
 </body>
+
+	<script>
+		// Initialize iframe after load
+		document.getElementById('pipewriter-frame').onload = function () {
+			console.log('Pipewriter frame loaded');
+			// Send ready signal to iframe
+			this.contentWindow.postMessage(JSON.stringify({
+				action: 'ready',
+				success: true
+			}), '*');
+		};
+	</script>
 
 </html>

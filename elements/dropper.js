@@ -1,6 +1,6 @@
 // elements/dropper.js - Element dropper functionality
 
-// Attach to global dropper object from main.js
+// Attach to global dropper object from Code.js
 var dropper = dropper || {};
 
 // #1 data model for UI elements
