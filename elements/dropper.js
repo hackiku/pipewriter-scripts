@@ -1,24 +1,28 @@
-// elements/dropper.js - Updated Element dropper functionality
+// elements/dropper.js - Production-aligned implementation
 
 // Expose global dropper object from Code.js
-var dropper = dropper || {};
+var dropper = {};
 
-// Master documents reference
+// Define master document IDs - using the correct production IDs
 const MASTER_DOCS = {
-	light: "1X-mEWo2wuRcVZdA8Y94cFMpUO6tKm8GLxY3ZA8lyulk",
-	dark: "1X-mEWo2wuRcVZdA8Y94cFMpUO6tKm8GLxY3ZA8lyulk" // Use same doc for now
+	light: "1gVSTS5SLDuui85maXIVtOjXzg7aBbviZ_6XHXSLYE74",
+	dark: "1FU1sZ4KdeAv_VcvDexzq6D4F0tffXnuVYAVVeVxz-ik"
 };
 
-// Default theme
-const DEFAULT_THEME = "light";
+// Default theme constant
+const THEME = "light";
 
-// Helper function to get element from master document
-function getElementFromMaster(elementId, theme = DEFAULT_THEME) {
+// Helper to get element table from master document
+function getElementFromMaster(elementId, theme) {
 	try {
 		const masterDoc = DocumentApp.openById(MASTER_DOCS[theme]);
 		const masterBody = masterDoc.getBody();
 		let foundElement = false;
 		let table = null;
+
+		// Note the difference in adjusting the elementId compared to your previous code
+		// In production code, you keep the elementId as is and don't append '-dark'
+		const adjustedElementId = elementId;
 
 		// Find elementId paragraph and its table
 		const numElements = masterBody.getNumChildren();
@@ -26,13 +30,13 @@ function getElementFromMaster(elementId, theme = DEFAULT_THEME) {
 			const element = masterBody.getChild(i);
 
 			if (element.getType() == DocumentApp.ElementType.PARAGRAPH) {
-				if (element.getText().trim() === elementId) {
+				if (element.getText().trim() === adjustedElementId) {
 					foundElement = true;
-					Logger.log('Found element: ' + elementId);
+					Logger.log('Found element: ' + adjustedElementId);
 				}
 			} else if (foundElement && element.getType() == DocumentApp.ElementType.TABLE) {
 				table = element.copy();
-				Logger.log('Found table for: ' + elementId);
+				Logger.log('Found table for: ' + adjustedElementId);
 				break;
 			}
 		}
@@ -45,7 +49,7 @@ function getElementFromMaster(elementId, theme = DEFAULT_THEME) {
 	}
 }
 
-// Insert table at cursor position with enhanced positioning
+// Enhanced table insertion with cursor positioning
 function insertElementTable(table) {
 	if (!table) {
 		throw new Error('No table provided');
@@ -53,86 +57,80 @@ function insertElementTable(table) {
 
 	const doc = DocumentApp.getActiveDocument();
 	const cursor = doc.getCursor();
-
 	if (!cursor) {
 		throw new Error('No cursor position found');
 	}
 
 	const element = cursor.getElement();
 	const parent = element.getParent();
+	const offset = parent.getChildIndex(element);
 
-	try {
-		const offset = parent.getChildIndex(element);
+	let insertedTable;
 
-		let insertedTable;
+	// Insert table based on context
+	if (parent.getType() == DocumentApp.ElementType.TABLE_CELL) {
+		insertedTable = parent.insertTable(offset + 1, table);
+	} else {
+		insertedTable = doc.getBody().insertTable(offset + 1, table);
+	}
 
-		// Insert table based on context
-		if (parent.getType() == DocumentApp.ElementType.TABLE_CELL) {
-			insertedTable = parent.insertTable(offset + 1, table);
-		} else {
-			insertedTable = doc.getBody().insertTable(offset + 1, table);
-		}
+	// Position cursor after the inserted table
+	if (insertedTable) {
+		try {
+			// Get index of inserted table
+			const body = doc.getBody();
+			const tableIndex = body.getChildIndex(insertedTable);
 
-		// Position cursor after the inserted table
-		if (insertedTable) {
-			try {
-				// Get index of inserted table
-				const body = doc.getBody();
-				const tableIndex = body.getChildIndex(insertedTable);
+			// Try to insert and position cursor at a new paragraph after table
+			let cursorPosition;
 
-				// Try to insert and position cursor at a new paragraph after table
-				let cursorPosition;
-
-				if (tableIndex < body.getNumChildren() - 1) {
-					// If there's an element after the table, position cursor there
-					const nextElement = body.getChild(tableIndex + 1);
-					cursorPosition = doc.newPosition(nextElement, 0);
-				} else {
-					// If table is last element, append paragraph and position cursor there
-					const newPara = body.appendParagraph('');
-					cursorPosition = doc.newPosition(newPara, 0);
-				}
-
-				// Set the new cursor position
-				doc.setCursor(cursorPosition);
-
-				Logger.log('Cursor positioned after table');
-				return {
-					success: true,
-					cursorMoved: true,
-					tableIndex: tableIndex
-				};
-			} catch (error) {
-				Logger.log('Error positioning cursor: ' + error);
-				return {
-					success: true,
-					cursorMoved: false,
-					error: error.toString()
-				};
+			if (tableIndex < body.getNumChildren() - 1) {
+				// If there's an element after the table, position cursor there
+				const nextElement = body.getChild(tableIndex + 1);
+				cursorPosition = doc.newPosition(nextElement, 0);
+			} else {
+				// If table is last element, append paragraph and position cursor there
+				const newPara = body.appendParagraph('');
+				cursorPosition = doc.newPosition(newPara, 0);
 			}
+
+			// Set the new cursor position
+			doc.setCursor(cursorPosition);
+
+			Logger.log('Cursor positioned after table');
+			return {
+				success: true,
+				cursorMoved: true,
+				tableIndex: tableIndex
+			};
+		} catch (error) {
+			Logger.log('Error positioning cursor: ' + error);
+			return {
+				success: true,
+				cursorMoved: false,
+				error: error.toString()
+			};
 		}
-	} catch (error) {
-		Logger.log('Error inserting table: ' + error);
-		throw error;
 	}
 
 	return false;
 }
 
 // Main element insertion function called by client
-dropper.getElement = function (params) {
+function getElement(params) {
 	try {
-		// Support both object parameters and direct elementId
+		// Handle both the object form and direct string form
 		const elementId = typeof params === 'object' ? params.elementId : params;
-		const theme = (typeof params === 'object' && params.theme) ? params.theme : DEFAULT_THEME;
+		const theme = (typeof params === 'object' && params.theme) ? params.theme : THEME;
 
 		Logger.log(`Getting element: ${elementId} (${theme})`);
 
-		// Adjust elementId for dark theme if needed
+		// Adjust elementId for dark theme - crucial difference in your production code
 		const adjustedElementId = theme === "dark" ? `${elementId}-dark` : elementId;
 
-		// Get element from master document
+		// Get the table from master doc
 		const table = getElementFromMaster(adjustedElementId, theme);
+
 		if (!table) {
 			throw new Error(`Element ${adjustedElementId} not found`);
 		}
@@ -157,4 +155,7 @@ dropper.getElement = function (params) {
 			error: error.message || 'Failed to insert element'
 		};
 	}
-};
+}
+
+// Make getElement available through the dropper global object
+dropper.getElement = getElement;
