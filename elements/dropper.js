@@ -45,6 +45,19 @@ const documentCache = {
 };
 
 /**
+ * Show an error message to the user using Google Docs UI
+ */
+function showUserError(message) {
+	try {
+		DocumentApp.getUi().alert("⚠️ Pipewriter Error", message, DocumentApp.getUi().ButtonSet.OK);
+	} catch (e) {
+		// If UI alert fails, log to console as fallback
+		Logger.log("Error displaying alert: " + e);
+		Logger.log("Original error: " + message);
+	}
+}
+
+/**
  * Get element table from the master document using direct index
  */
 function getElementTable(elementId, theme = 'light') {
@@ -119,32 +132,56 @@ function getCursorInfo() {
 			if (rangeElements && rangeElements.length > 0) {
 				// Get the first element in the selection
 				const firstElement = rangeElements[0].getElement();
-
-				// Find a suitable insertion point
 				const parent = firstElement.getParent();
-				let referenceElement = firstElement;
 
-				// If it's partial text selection, get the parent paragraph
-				if (firstElement.getType() === DocumentApp.ElementType.TEXT) {
-					referenceElement = parent;
+				// Find containing paragraph or next paragraph
+				let targetParagraph = null;
+				let targetOffset = 0;
+
+				// Helper to determine if element is or contains a paragraph
+				const isParagraphLike = function (el) {
+					return el && (
+						el.getType() === DocumentApp.ElementType.PARAGRAPH ||
+						el.getType() === DocumentApp.ElementType.LIST_ITEM
+					);
+				};
+
+				// Find a paragraph to insert after
+				if (isParagraphLike(firstElement)) {
+					// If selection is a paragraph, use it
+					targetParagraph = firstElement;
+				} else if (isParagraphLike(parent)) {
+					// If parent is a paragraph, use it
+					targetParagraph = parent;
 				}
 
-				// Get position in parent's parent (usually the body)
-				const container = parent.getParent();
-				const offset = container.getChildIndex(referenceElement);
+				// If we found a paragraph
+				if (targetParagraph) {
+					const container = targetParagraph.getParent();
+					targetOffset = container.getChildIndex(targetParagraph);
 
-				return {
-					type: 'selection',
-					element: firstElement,
-					parent: container,
-					offset: offset,
-					selection: selection
-				};
+					return {
+						type: 'selection',
+						element: firstElement,
+						parent: container,
+						offset: targetOffset,
+						selection: selection
+					};
+				} else {
+					// No paragraph found in selection, use body
+					return {
+						type: 'selection',
+						element: firstElement,
+						parent: doc.getBody(),
+						offset: 0, // Insert at beginning if can't determine position
+						selection: selection
+					};
+				}
 			}
 		}
 
 		// No cursor or selection found
-		throw new Error('No cursor or selection found. Please click in the document where you want to insert the element.');
+		throw new Error('Please click in the document or select text to show where you want to insert the element.');
 
 	} catch (error) {
 		Logger.log(`Error getting cursor info: ${error}`);
@@ -166,24 +203,18 @@ function insertTableAtCursor(table) {
 		const cursorInfo = getCursorInfo();
 
 		if (!cursorInfo) {
-			throw new Error('Please position your cursor in the document before inserting');
+			const errorMsg = "Please position your cursor in the document before inserting";
+			showUserError(errorMsg);
+			throw new Error(errorMsg);
 		}
 
 		let insertedTable;
 
-		// Handle selection vs cursor
+		// Insert table after the current paragraph or at cursor
 		if (cursorInfo.type === 'selection') {
-			// If there's a selection, replace it or insert at its position
-			try {
-				cursorInfo.selection.removeFromParent();
-			} catch (e) {
-				// Some selections can't be removed directly
-				Logger.log("Couldn't remove selection: " + e);
-			}
-		}
-
-		// Insert table
-		if (cursorInfo.parent.getType() === DocumentApp.ElementType.TABLE_CELL) {
+			// Insert after the paragraph containing the selection
+			insertedTable = cursorInfo.parent.insertTable(cursorInfo.offset + 1, table);
+		} else if (cursorInfo.parent.getType() === DocumentApp.ElementType.TABLE_CELL) {
 			// If inside a table cell
 			insertedTable = cursorInfo.parent.insertTable(cursorInfo.offset + 1, table);
 		} else {
@@ -213,7 +244,7 @@ function insertTableAtCursor(table) {
 				};
 			} catch (e) {
 				Logger.log('Error positioning cursor: ' + e);
-				// Still consider insertion successful
+
 				return {
 					success: true,
 					insertedTable: insertedTable,
@@ -244,12 +275,15 @@ function getElement(params) {
 		// Get the element table
 		const table = getElementTable(elementId, theme);
 		if (!table) {
-			throw new Error(`Could not retrieve element: ${elementId}`);
+			const errorMsg = `Could not retrieve element: ${elementId}`;
+			showUserError(errorMsg);
+			throw new Error(errorMsg);
 		}
 
 		// Insert at cursor position
 		const result = insertTableAtCursor(table);
 		if (!result.success) {
+			showUserError(result.error || 'Failed to insert element');
 			throw new Error(result.error || 'Failed to insert element');
 		}
 
