@@ -1,4 +1,4 @@
-// aiOps.gs
+// convertHtml.gs
 
 /**
  * Global mapping for heading configurations
