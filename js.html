@@ -89,6 +89,21 @@
 					copyToClipboard: payload?.copyToClipboard || false
 				});
 		},
+		tableOps: (payload) => {
+			google.script.run
+				.withSuccessHandler((response) => {
+					console.log('Table operation result:', response);
+					sendResponse('tableOps', true, null, response);
+				})
+				.withFailureHandler((error) => {
+					console.error('Failed table operation:', error);
+					sendResponse('tableOps', false, error.toString());
+				})
+				.tableOps({
+					action: payload.action,
+					payload: payload.payload
+				});
+		}
 	};
 
 	// Helper function to send responses back to iframe

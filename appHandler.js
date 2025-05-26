@@ -106,14 +106,13 @@ var appHandler = (function () {
 		// Table operations
 		'tableOps': function (payload, callback) {
 			try {
-				if (!payload.operation) {
-					throw new Error('No table operation specified');
+				// The payload should contain the structured parameters
+				if (!payload.action) {
+					throw new Error('No table action specified');
 				}
 
-				const result = tableOps({
-					action: payload.operation,
-					payload: payload
-				});
+				// Call the main tableOps function with the payload
+				const result = tableOps(payload);
 				callback(null, result);
 			} catch (error) {
 				handleError(error, callback);

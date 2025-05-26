@@ -38,6 +38,11 @@ function showFormInSidebar() {
 	DocumentApp.getUi().showSidebar(form);
 }
 
+// function tableOps(params) {
+// 	// Forward to the tableOps function in table.js
+// 	return tableOps(params);
+// }
+
 // Wrapper functions for menu items
 function dropHtmlStart() {
 	return dropHtml({ position: 'start' });
