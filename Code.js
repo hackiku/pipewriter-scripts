@@ -65,22 +65,25 @@ function onOpen() {
 			)
 
 			// Cell Background submenu
-			.addSubMenu(ui.createMenu("Cell Backgrounds")
-				.addItem("Current Cell → White", "menuSetCellBackgroundWhite")
-				.addItem("Current Cell → Light Gray", "menuSetCellBackgroundLightGray")
-				.addItem("Current Cell → Dark Gray", "menuSetCellBackgroundDarkGray")
-				.addItem("Current Cell → Light Blue", "menuSetCellBackgroundBlue")
-				.addItem("Current Cell → Light Green", "menuSetCellBackgroundGreen")
-				.addItem("Current Cell → Light Yellow", "menuSetCellBackgroundYellow")
-				.addItem("Current Cell → Clear", "menuClearCellBackground")
-				.addSeparator()
-				.addItem("All Cells → White", "menuSetTableBackgroundWhite")
-				.addItem("All Cells → Light Gray", "menuSetTableBackgroundLightGray")
-				.addItem("All Cells → Dark Gray", "menuSetTableBackgroundDarkGray")
-				.addItem("All Cells → Light Blue", "menuSetTableBackgroundBlue")
-				.addItem("All Cells → Light Green", "menuSetTableBackgroundGreen")
-				.addItem("All Cells → Light Yellow", "menuSetTableBackgroundYellow")
-				.addItem("All Cells → Clear", "menuClearTableBackground")
+			.addSubMenu(ui.createMenu("Cell Background")
+				.addItem("White", "menuSetCellBackgroundWhite")
+				.addItem("Light Gray", "menuSetCellBackgroundLightGray")
+				.addItem("Dark Gray", "menuSetCellBackgroundDarkGray")
+				.addItem("Light Blue", "menuSetCellBackgroundBlue")
+				.addItem("Light Green", "menuSetCellBackgroundGreen")
+				.addItem("Light Yellow", "menuSetCellBackgroundYellow")
+				.addItem("Clear", "menuClearCellBackground")
+			)
+
+			// Table Background submenu
+			.addSubMenu(ui.createMenu("Table Background")
+				.addItem("White", "menuSetTableBackgroundWhite")
+				.addItem("Light Gray", "menuSetTableBackgroundLightGray")
+				.addItem("Dark Gray", "menuSetTableBackgroundDarkGray")
+				.addItem("Light Blue", "menuSetTableBackgroundBlue")
+				.addItem("Light Green", "menuSetTableBackgroundGreen")
+				.addItem("Light Yellow", "menuSetTableBackgroundYellow")
+				.addItem("Clear", "menuClearTableBackground")
 			)
 		)
 
@@ -114,6 +117,7 @@ function showFormInSidebar() {
 	DocumentApp.getUi().showSidebar(form);
 }
 
+
 // Legacy wrapper functions for backwards compatibility
 function dropHtmlStart() {
 	return dropHtml({ position: 'start' });
@@ -142,4 +146,27 @@ function getElement(elementId) {
 
 function insertZigzagRight() {
 	return tableCreator.createZigzagRight();
+}
+
+
+// Global wrapper for HTML service calls - different name to avoid conflicts
+function tableOpsHtml(params) {
+	// Debug logging
+	Logger.log('tableOpsHtml received: ' + JSON.stringify(params));
+
+	// Ensure parameters are properly structured
+	const cleanParams = {
+		action: params.action,
+		scope: params.scope,
+		alignment: params.alignment,
+		padding: Number(params.padding), // Ensure it's a number
+		borderWidth: Number(params.borderWidth),
+		borderColor: params.borderColor,
+		backgroundColor: params.backgroundColor
+	};
+
+	Logger.log('tableOpsHtml cleaned: ' + JSON.stringify(cleanParams));
+
+	// Call the existing tableOps function
+	return tableOps(cleanParams);
 }
