@@ -1,8 +1,9 @@
-// appHandler.js - Main handler for app requests
+// appHandler.js - Main handler for app requests (Production)
 
 /**
  * Central handler for all app requests
  * Dispatches to appropriate modules and provides unified error handling
+ * No UI alerts - all feedback handled by the client application
  */
 var appHandler = (function () {
 	// Request start time map (for performance tracking)
@@ -42,7 +43,7 @@ var appHandler = (function () {
 				}
 
 				// Use indexDropper for faster element insertion if available
-				const useIndexDropper = true; // Set to true to use index-based approach
+				const useIndexDropper = true;
 
 				let result;
 				if (useIndexDropper && indexDropper && typeof indexDropper.insertElement === 'function') {
@@ -103,36 +104,20 @@ var appHandler = (function () {
 			}
 		},
 
-		// appHandler.js
-		// ...
-		'tableOps': function (payloadFromClient, callback) {
+		// Table operations
+		'tableOps': function (payload, callback) {
 			try {
-				if (!payloadFromClient || !payloadFromClient.action) {
+				if (!payload || !payload.action) {
 					throw new Error('No table action specified in payload');
 				}
-				// Pass showAlert: false so tableOps doesn't show its own UI alerts
-				const paramsForGS = { ...payloadFromClient, showAlert: false };
-				const result = tableOps(paramsForGS); // tableOps is global from formatting/table.js
+
+				// Call tableOps directly with the payload - no UI alerts in production
+				const result = tableOps(payload);
 				callback(null, result);
 			} catch (error) {
-				handleError(error, callback); // handleError will log and format for client
+				handleError(error, callback);
 			}
 		}
-		// ...
-		// 'tableOps': function (payload, callback) {
-		// 	try {
-		// 		// The payload should contain the structured parameters
-		// 		if (!payload.action) {
-		// 			throw new Error('No table action specified');
-		// 		}
-
-		// 		// Call the main tableOps function with the payload
-		// 		const result = tableOps(payload);
-		// 		callback(null, result);
-		// 	} catch (error) {
-		// 		handleError(error, callback);
-		// 	}
-		// }
 	};
 
 	/**

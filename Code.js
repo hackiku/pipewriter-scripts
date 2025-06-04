@@ -28,7 +28,6 @@ function onOpen() {
 		// Table Controls
 		.addSubMenu(ui.createMenu("📋 Table Controls")
 			.addItem("Select Whole Table", "menuSelectTable")
-			.addItem("Open Table Options", "menuOpenTableOptions")
 			.addSeparator()
 
 			// Cell Alignment submenu
@@ -64,6 +63,25 @@ function onOpen() {
 				.addSeparator()
 				.addItem("Remove All Borders", "menuRemoveTableBorders")
 			)
+
+			// Cell Background submenu
+			.addSubMenu(ui.createMenu("Cell Backgrounds")
+				.addItem("Current Cell → White", "menuSetCellBackgroundWhite")
+				.addItem("Current Cell → Light Gray", "menuSetCellBackgroundLightGray")
+				.addItem("Current Cell → Dark Gray", "menuSetCellBackgroundDarkGray")
+				.addItem("Current Cell → Light Blue", "menuSetCellBackgroundBlue")
+				.addItem("Current Cell → Light Green", "menuSetCellBackgroundGreen")
+				.addItem("Current Cell → Light Yellow", "menuSetCellBackgroundYellow")
+				.addItem("Current Cell → Clear", "menuClearCellBackground")
+				.addSeparator()
+				.addItem("All Cells → White", "menuSetTableBackgroundWhite")
+				.addItem("All Cells → Light Gray", "menuSetTableBackgroundLightGray")
+				.addItem("All Cells → Dark Gray", "menuSetTableBackgroundDarkGray")
+				.addItem("All Cells → Light Blue", "menuSetTableBackgroundBlue")
+				.addItem("All Cells → Light Green", "menuSetTableBackgroundGreen")
+				.addItem("All Cells → Light Yellow", "menuSetTableBackgroundYellow")
+				.addItem("All Cells → Clear", "menuClearTableBackground")
+			)
 		)
 
 		.addSeparator()
@@ -85,15 +103,6 @@ function onOpen() {
 			.addItem("Gray Background", "menuSetBackgroundGray")
 			.addItem("White Background", "menuSetBackgroundWhite")
 			.addItem("Dark Background", "menuSetBackgroundDark")
-		)
-
-		.addSeparator()
-
-		// Testing & Development
-		.addSubMenu(ui.createMenu("🧪 Testing")
-			.addItem("Run Interactive Tests", "runInteractiveTests")
-			.addItem("Test Table Operations", "testAllTableOperations")
-			.addItem("Test Element Insertions", "testElementInsertions")
 		)
 
 		.addToUi();

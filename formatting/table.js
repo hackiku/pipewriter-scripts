@@ -9,21 +9,18 @@
  * @param {number} [params.padding] - Padding value in points
  * @param {number} [params.borderWidth] - Border width in points
  * @param {string} [params.borderColor] - Border color hex string
- * @param {boolean} [params.showAlert=true] - Whether to show UI alerts
  * @returns {Object} Result object with success/error info
  */
 function tableOps(params) {
 	const startTime = new Date().getTime();
-	const showAlert = (params.showAlert === undefined) ? true : params.showAlert;
-	let uiAlertMessage = null;
 
 	try {
 		if (!params || !params.action) {
 			throw new Error('No action specified for tableOps');
 		}
 
-		// Get table context - some actions like selectWholeTable work with table selection
-		const allowTableSelection = params.action === 'selectWholeTable' || params.action === 'openTableOptions';
+		// Get table context - selectWholeTable works with table selection
+		const allowTableSelection = params.action === 'selectWholeTable';
 		const context = getTableContext(allowTableSelection);
 
 		if (!context.success) {
@@ -34,36 +31,26 @@ function tableOps(params) {
 		switch (params.action) {
 			case 'setCellAlignment':
 				result = setCellAlignment(context, params.scope, params.alignment, startTime);
-				uiAlertMessage = result.message;
 				break;
 
 			case 'setCellPadding':
 				result = setCellPadding(context, params.scope, params.padding, startTime);
-				uiAlertMessage = result.message;
 				break;
 
 			case 'setBorders':
 				result = setBorders(context, params.scope, params.borderWidth, params.borderColor, startTime);
-				uiAlertMessage = result.message;
+				break;
+
+			case 'setCellBackground':
+				result = setCellBackground(context, params.scope, params.backgroundColor, startTime);
 				break;
 
 			case 'selectWholeTable':
 				result = selectWholeTable(context, startTime);
-				// No UI alert for selection - it's a visual change
-				break;
-
-			case 'openTableOptions':
-				result = openTableOptions(context, startTime);
-				uiAlertMessage = result.message;
 				break;
 
 			default:
 				throw new Error(`Unknown table action: ${params.action}`);
-		}
-
-		// Show success alert if enabled and we have a message
-		if (result.success && uiAlertMessage && showAlert) {
-			DocumentApp.getUi().alert('✅ Table Control', uiAlertMessage, DocumentApp.getUi().ButtonSet.OK);
 		}
 
 		return result;
@@ -77,11 +64,6 @@ function tableOps(params) {
 		};
 
 		Logger.log(`Error in tableOps (action: ${params.action}): ${error.message}`);
-
-		if (showAlert) {
-			DocumentApp.getUi().alert('❌ Table Control Error', errorResult.message, DocumentApp.getUi().ButtonSet.OK);
-		}
-
 		return errorResult;
 	}
 }
@@ -157,10 +139,7 @@ function getTableContext(allowTableSelectionOnly = false) {
  * Set cell content vertical alignment
  */
 function setCellAlignment(context, scope, alignment, startTime) {
-	if (!context || !context.table) throw new Error('Invalid table context for setCellAlignment.');
-	if (scope === 'cell' && !context.tableCell) throw new Error('A cell must be active (cursor inside) to align only that cell.');
 	if (!['top', 'middle', 'bottom'].includes(alignment)) throw new Error(`Invalid cell alignment: ${alignment}.`);
-	if (!['cell', 'table'].includes(scope)) throw new Error(`Invalid scope for cell alignment: ${scope}.`);
 
 	const alignmentMap = {
 		'top': DocumentApp.VerticalAlignment.TOP,
@@ -169,24 +148,9 @@ function setCellAlignment(context, scope, alignment, startTime) {
 	};
 
 	const verticalAlignment = alignmentMap[alignment];
-	let cellsUpdated = 0;
+	const cellOperation = (cell) => cell.setVerticalAlignment(verticalAlignment);
+	const { scopeText } = applyCellOperation(context, scope, cellOperation, 'cell alignment');
 
-	if (scope === 'cell') {
-		context.tableCell.setVerticalAlignment(verticalAlignment);
-		cellsUpdated = 1;
-	} else { // scope === 'table'
-		const numRows = context.table.getNumRows();
-		for (let i = 0; i < numRows; i++) {
-			const row = context.table.getRow(i);
-			const numCells = row.getNumCells();
-			for (let j = 0; j < numCells; j++) {
-				row.getCell(j).setVerticalAlignment(verticalAlignment);
-				cellsUpdated++;
-			}
-		}
-	}
-
-	const scopeText = scope === 'cell' ? 'selected cell' : `all ${cellsUpdated} cells in the table`;
 	return {
 		success: true,
 		message: `Content aligned to ${alignment} for ${scopeText}.`,
@@ -198,35 +162,17 @@ function setCellAlignment(context, scope, alignment, startTime) {
  * Set cell padding
  */
 function setCellPadding(context, scope, padding, startTime) {
-	if (!context || !context.table) throw new Error('Invalid table context for setCellPadding.');
-	if (scope === 'cell' && !context.tableCell) throw new Error('A cell must be active (cursor inside) to set padding for only that cell.');
 	if (typeof padding !== 'number' || padding < 0) throw new Error(`Invalid padding value: ${padding}.`);
-	if (!['cell', 'table'].includes(scope)) throw new Error(`Invalid scope for padding: ${scope}.`);
 
-	let cellsUpdated = 0;
-	const applyPadding = (cell) => {
+	const cellOperation = (cell) => {
 		cell.setPaddingTop(padding);
 		cell.setPaddingBottom(padding);
 		cell.setPaddingLeft(padding);
 		cell.setPaddingRight(padding);
 	};
 
-	if (scope === 'cell') {
-		applyPadding(context.tableCell);
-		cellsUpdated = 1;
-	} else { // scope === 'table'
-		const numRows = context.table.getNumRows();
-		for (let i = 0; i < numRows; i++) {
-			const row = context.table.getRow(i);
-			const numCells = row.getNumCells();
-			for (let j = 0; j < numCells; j++) {
-				applyPadding(row.getCell(j));
-				cellsUpdated++;
-			}
-		}
-	}
+	const { scopeText } = applyCellOperation(context, scope, cellOperation, 'padding');
 
-	const scopeText = scope === 'cell' ? 'selected cell' : `all ${cellsUpdated} cells in the table`;
 	return {
 		success: true,
 		message: `Padding set to ${padding}pt for ${scopeText}.`,
@@ -235,11 +181,45 @@ function setCellPadding(context, scope, padding, startTime) {
 }
 
 /**
- * Set table borders
+ * Abstract helper for applying operations to current cell vs all cells
+ * @param {Object} context - Table context
+ * @param {string} scope - 'cell' or 'table'
+ * @param {Function} cellOperation - Function to apply to each cell
+ * @param {string} operationName - Name of operation for error messages
+ * @returns {Object} - { cellsUpdated: number, scopeText: string }
+ */
+function applyCellOperation(context, scope, cellOperation, operationName) {
+	if (!context || !context.table) throw new Error(`Invalid table context for ${operationName}.`);
+	if (scope === 'cell' && !context.tableCell) throw new Error(`A cell must be active (cursor inside) to apply ${operationName} to only that cell.`);
+	if (!['cell', 'table'].includes(scope)) throw new Error(`Invalid scope for ${operationName}: ${scope}.`);
+
+	let cellsUpdated = 0;
+
+	if (scope === 'cell') {
+		cellOperation(context.tableCell);
+		cellsUpdated = 1;
+	} else { // scope === 'table'
+		const numRows = context.table.getNumRows();
+		for (let i = 0; i < numRows; i++) {
+			const row = context.table.getRow(i);
+			const numCells = row.getNumCells();
+			for (let j = 0; j < numCells; j++) {
+				cellOperation(row.getCell(j));
+				cellsUpdated++;
+			}
+		}
+	}
+
+	const scopeText = scope === 'cell' ? 'selected cell' : `all ${cellsUpdated} cells in the table`;
+	return { cellsUpdated, scopeText };
+}
+
+/**
+ * Set table borders (table-wide only)
  */
 function setBorders(context, scope, borderWidth, borderColor, startTime) {
 	if (!context || !context.table) throw new Error('Invalid table context for setBorders.');
-	if (scope !== 'table') throw new Error("Border styling is applied to the whole table. 'cell' scope for distinct borders is not supported.");
+	if (scope !== 'table') throw new Error("Border styling is only supported for the whole table, not individual cells.");
 	if (typeof borderWidth !== 'number' || borderWidth < 0) throw new Error(`Invalid border width: ${borderWidth}.`);
 
 	const effectiveBorderColor = (borderWidth > 0) ? (borderColor || '#000000') : null;
@@ -264,36 +244,45 @@ function setBorders(context, scope, borderWidth, borderColor, startTime) {
 }
 
 /**
- * Select the entire table
+ * Set cell background colors
  */
-function selectWholeTable(context, startTime) {
-	if (!context || !context.table) throw new Error('Could not identify the table to select.');
+function setCellBackground(context, scope, backgroundColor, startTime) {
+	if (!backgroundColor) throw new Error('No background color specified.');
 
-	const doc = context.doc;
-	doc.setSelection(doc.newRange().addElement(context.table).build());
+	const cellOperation = (cell) => {
+		cell.setBackgroundColor(backgroundColor);
+	};
+
+	const { scopeText } = applyCellOperation(context, scope, cellOperation, 'background color');
 
 	return {
 		success: true,
-		message: 'Table selected.',
+		message: `Background color set to ${backgroundColor} for ${scopeText}.`,
 		executionTime: new Date().getTime() - startTime
 	};
 }
 
 /**
- * Open table options (simulates right-click > Table options)
- * Note: This is a workaround since we can't actually trigger the native menu
+ * Select the entire table (precisely, without extra elements)
  */
-function openTableOptions(context, startTime) {
-	if (!context || !context.table) throw new Error('Could not identify the table for options.');
+function selectWholeTable(context, startTime) {
+	if (!context || !context.table) throw new Error('Could not identify the table to select.');
 
-	// Since we can't actually open the native table options dialog,
-	// we'll select the table and show a helpful message
-	const doc = context.doc;
-	doc.setSelection(doc.newRange().addElement(context.table).build());
+	try {
+		const doc = context.doc;
+		const table = context.table;
 
-	return {
-		success: true,
-		message: 'Table selected. Right-click the table to access native table options.',
-		executionTime: new Date().getTime() - startTime
-	};
+		// Create a precise selection of just the table
+		const range = doc.newRange();
+		range.addElement(table);
+		doc.setSelection(range.build());
+
+		return {
+			success: true,
+			message: 'Table selected.',
+			executionTime: new Date().getTime() - startTime
+		};
+	} catch (error) {
+		throw new Error('Failed to select table: ' + error.toString());
+	}
 }

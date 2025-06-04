@@ -118,7 +118,6 @@ function menuSetPaddingCell20() {
 // Custom padding for selected cell
 function menuSetPaddingCellCustom(padding) {
 	if (typeof padding !== 'number' || padding < 0) {
-		DocumentApp.getUi().alert('❌ Error', 'Please provide a valid padding value (0 or greater)', DocumentApp.getUi().ButtonSet.OK);
 		return { success: false, error: 'Invalid padding value' };
 	}
 	return tableOps({ action: 'setCellPadding', scope: 'cell', padding: padding });
@@ -144,13 +143,12 @@ function menuSetPaddingTable20() {
 // Custom padding for whole table
 function menuSetPaddingTableCustom(padding) {
 	if (typeof padding !== 'number' || padding < 0) {
-		DocumentApp.getUi().alert('❌ Error', 'Please provide a valid padding value (0 or greater)', DocumentApp.getUi().ButtonSet.OK);
 		return { success: false, error: 'Invalid padding value' };
 	}
 	return tableOps({ action: 'setCellPadding', scope: 'table', padding: padding });
 }
 
-// --- Table Borders ---
+// --- Table Borders (Table-wide only) ---
 function menuSetTableBorder1ptBlack() {
 	return tableOps({ action: 'setBorders', scope: 'table', borderWidth: 1, borderColor: '#000000' });
 }
@@ -171,144 +169,88 @@ function menuRemoveTableBorders() {
 	return tableOps({ action: 'setBorders', scope: 'table', borderWidth: 0 });
 }
 
-// Custom border for table
+// Custom table border
 function menuSetTableBorderCustom(borderWidth, borderColor = '#000000') {
 	if (typeof borderWidth !== 'number' || borderWidth < 0) {
-		DocumentApp.getUi().alert('❌ Error', 'Please provide a valid border width (0 or greater)', DocumentApp.getUi().ButtonSet.OK);
 		return { success: false, error: 'Invalid border width' };
 	}
 	return tableOps({ action: 'setBorders', scope: 'table', borderWidth: borderWidth, borderColor: borderColor });
 }
 
-// --- Table Selection & Options ---
+// --- Cell Background Colors (Current Cell) ---
+function menuSetCellBackgroundWhite() {
+	return tableOps({ action: 'setCellBackground', scope: 'cell', backgroundColor: '#ffffff' });
+}
+
+function menuSetCellBackgroundLightGray() {
+	return tableOps({ action: 'setCellBackground', scope: 'cell', backgroundColor: '#f3f3f3' });
+}
+
+function menuSetCellBackgroundDarkGray() {
+	return tableOps({ action: 'setCellBackground', scope: 'cell', backgroundColor: '#e0e0e0' });
+}
+
+function menuSetCellBackgroundBlue() {
+	return tableOps({ action: 'setCellBackground', scope: 'cell', backgroundColor: '#e3f2fd' });
+}
+
+function menuSetCellBackgroundGreen() {
+	return tableOps({ action: 'setCellBackground', scope: 'cell', backgroundColor: '#e8f5e8' });
+}
+
+function menuSetCellBackgroundYellow() {
+	return tableOps({ action: 'setCellBackground', scope: 'cell', backgroundColor: '#fff9c4' });
+}
+
+function menuClearCellBackground() {
+	return tableOps({ action: 'setCellBackground', scope: 'cell', backgroundColor: '' });
+}
+
+// --- Table Background Colors (All Cells) ---
+function menuSetTableBackgroundWhite() {
+	return tableOps({ action: 'setCellBackground', scope: 'table', backgroundColor: '#ffffff' });
+}
+
+function menuSetTableBackgroundLightGray() {
+	return tableOps({ action: 'setCellBackground', scope: 'table', backgroundColor: '#f3f3f3' });
+}
+
+function menuSetTableBackgroundDarkGray() {
+	return tableOps({ action: 'setCellBackground', scope: 'table', backgroundColor: '#e0e0e0' });
+}
+
+function menuSetTableBackgroundBlue() {
+	return tableOps({ action: 'setCellBackground', scope: 'table', backgroundColor: '#e3f2fd' });
+}
+
+function menuSetTableBackgroundGreen() {
+	return tableOps({ action: 'setCellBackground', scope: 'table', backgroundColor: '#e8f5e8' });
+}
+
+function menuSetTableBackgroundYellow() {
+	return tableOps({ action: 'setCellBackground', scope: 'table', backgroundColor: '#fff9c4' });
+}
+
+function menuClearTableBackground() {
+	return tableOps({ action: 'setCellBackground', scope: 'table', backgroundColor: '' });
+}
+
+// Custom background colors
+function menuSetCellBackgroundCustom(backgroundColor) {
+	if (!backgroundColor) {
+		return { success: false, error: 'No background color specified' };
+	}
+	return tableOps({ action: 'setCellBackground', scope: 'cell', backgroundColor: backgroundColor });
+}
+
+function menuSetTableBackgroundCustom(backgroundColor) {
+	if (!backgroundColor) {
+		return { success: false, error: 'No background color specified' };
+	}
+	return tableOps({ action: 'setCellBackground', scope: 'table', backgroundColor: backgroundColor });
+}
+
+// --- Table Selection ---
 function menuSelectTable() {
 	return tableOps({ action: 'selectWholeTable' });
-}
-
-function menuOpenTableOptions() {
-	return tableOps({ action: 'openTableOptions' });
-}
-
-// =============================================================================
-// TESTING UTILITIES
-// =============================================================================
-
-/**
- * Test all table operations to verify they work
- * Place cursor in a table cell before running
- */
-function testAllTableOperations() {
-	Logger.log('=== Testing Table Operations ===');
-
-	const tests = [
-		{ name: 'Align Cell Top', fn: () => menuAlignSelectedCellTop() },
-		{ name: 'Align Cell Middle', fn: () => menuAlignSelectedCellMiddle() },
-		{ name: 'Set Cell Padding 10pt', fn: () => menuSetPaddingCell10() },
-		{ name: 'Set Table Padding 5pt', fn: () => menuSetPaddingTable5() },
-		{ name: 'Add 1pt Black Border', fn: () => menuSetTableBorder1ptBlack() },
-		{ name: 'Remove Borders', fn: () => menuRemoveTableBorders() },
-		{ name: 'Select Table', fn: () => menuSelectTable() }
-	];
-
-	const results = [];
-
-	tests.forEach(test => {
-		try {
-			Logger.log(`Testing: ${test.name}`);
-			const result = test.fn();
-			results.push({
-				name: test.name,
-				success: result.success,
-				message: result.message || result.error,
-				executionTime: result.executionTime
-			});
-			Logger.log(`✅ ${test.name}: ${result.success ? 'PASSED' : 'FAILED'}`);
-			if (!result.success) {
-				Logger.log(`   Error: ${result.error}`);
-			}
-		} catch (error) {
-			Logger.log(`❌ ${test.name}: ERROR - ${error.toString()}`);
-			results.push({
-				name: test.name,
-				success: false,
-				message: error.toString(),
-				executionTime: null
-			});
-		}
-	});
-
-	Logger.log('=== Test Results Summary ===');
-	const passed = results.filter(r => r.success).length;
-	const total = results.length;
-	Logger.log(`Passed: ${passed}/${total}`);
-
-	return results;
-}
-
-/**
- * Test element insertion operations
- */
-function testElementInsertions() {
-	Logger.log('=== Testing Element Insertions ===');
-
-	const tests = [
-		{ name: 'Insert Hero', fn: () => menuInsertHero() },
-		{ name: 'Insert Zigzag Left', fn: () => menuInsertZigzagLeft() },
-		{ name: 'Insert Blurbs 3', fn: () => menuInsertBlurbs3() }
-	];
-
-	const results = [];
-
-	tests.forEach(test => {
-		try {
-			Logger.log(`Testing: ${test.name}`);
-			const result = test.fn();
-			results.push({
-				name: test.name,
-				success: result.success,
-				message: result.message || result.error
-			});
-			Logger.log(`${result.success ? '✅' : '❌'} ${test.name}: ${result.success ? 'PASSED' : 'FAILED'}`);
-		} catch (error) {
-			Logger.log(`❌ ${test.name}: ERROR - ${error.toString()}`);
-			results.push({
-				name: test.name,
-				success: false,
-				message: error.toString()
-			});
-		}
-	});
-
-	return results;
-}
-
-/**
- * Interactive test runner - shows results in UI
- */
-function runInteractiveTests() {
-	const ui = DocumentApp.getUi();
-
-	const response = ui.alert(
-		'Pipewriter Test Runner',
-		'What would you like to test?\n\n1. Table Operations (requires cursor in table cell)\n2. Element Insertions (requires cursor in document)',
-		ui.ButtonSet.YES_NO_CANCEL
-	);
-
-	let results = [];
-
-	if (response === ui.Button.YES) {
-		results = testAllTableOperations();
-	} else if (response === ui.Button.NO) {
-		results = testElementInsertions();
-	} else {
-		return;
-	}
-
-	// Show results
-	const passed = results.filter(r => r.success).length;
-	const total = results.length;
-	const summary = `Test Results: ${passed}/${total} passed\n\n` +
-		results.map(r => `${r.success ? '✅' : '❌'} ${r.name}`).join('\n');
-
-	ui.alert('Test Results', summary, ui.ButtonSet.OK);
 }
