@@ -103,21 +103,36 @@ var appHandler = (function () {
 			}
 		},
 
-		// Table operations
-		'tableOps': function (payload, callback) {
+		// appHandler.js
+		// ...
+		'tableOps': function (payloadFromClient, callback) {
 			try {
-				// The payload should contain the structured parameters
-				if (!payload.action) {
-					throw new Error('No table action specified');
+				if (!payloadFromClient || !payloadFromClient.action) {
+					throw new Error('No table action specified in payload');
 				}
-
-				// Call the main tableOps function with the payload
-				const result = tableOps(payload);
+				// Pass showAlert: false so tableOps doesn't show its own UI alerts
+				const paramsForGS = { ...payloadFromClient, showAlert: false };
+				const result = tableOps(paramsForGS); // tableOps is global from formatting/table.js
 				callback(null, result);
 			} catch (error) {
-				handleError(error, callback);
+				handleError(error, callback); // handleError will log and format for client
 			}
 		}
+		// ...
+		// 'tableOps': function (payload, callback) {
+		// 	try {
+		// 		// The payload should contain the structured parameters
+		// 		if (!payload.action) {
+		// 			throw new Error('No table action specified');
+		// 		}
+
+		// 		// Call the main tableOps function with the payload
+		// 		const result = tableOps(payload);
+		// 		callback(null, result);
+		// 	} catch (error) {
+		// 		handleError(error, callback);
+		// 	}
+		// }
 	};
 
 	/**

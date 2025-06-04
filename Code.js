@@ -1,4 +1,4 @@
-// main.js - Entry point and menu setup
+// Code.js - Entry point and menu setup
 
 // Expose global functions
 var dropper = {};
@@ -10,12 +10,7 @@ function onInstall(e) {
 function onOpen() {
 	var ui = DocumentApp.getUi();
 	ui.createMenu("Pipewriter")
-		.addItem("App", "showFormInSidebar")
-		.addSeparator()
-		.addSubMenu(ui.createMenu("Index Insert (Fast)")
-			.addItem("Zigzag Left", "indexDropper.insertZigzagLeft")
-			.addItem("Blurbs 3", "indexDropper.insertBlurbs3")
-		)
+		.addItem("Open Sidebar", "showFormInSidebar")
 		.addSeparator()
 		.addItem("Insert Zigzag Right", "insertZigzagRight")
 		.addSeparator()
@@ -25,10 +20,10 @@ function onOpen() {
 		.addItem("Delete HTML", "stripHtmlAll")
 		.addItem("HTML to clipboard", "dropHtmlClipboard")
 		.addSeparator()
-		.addItem("format to HTML", "doc2html")
-		.addItem("delete </>", "deleteHTMLtags")
-		.addItem("HTML to Pipe", "html2doc")
-		.addItem("Gray Background", "graybg")
+		.addSubMenu(ui.createMenu("Index Insert (Fast)")
+			.addItem("Zigzag Left", "indexDropper.insertZigzagLeft")
+			.addItem("Blurbs 3", "indexDropper.insertBlurbs3")
+		)
 		.addToUi();
 }
 
