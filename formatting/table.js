@@ -1,20 +1,19 @@
-// formatting/table.js
+// formatting/table.js - Clean, consolidated table operations
 
 /**
  * Main table operations function
- * @param {Object} params - Operation parameters.
- * @param {string} params.action - The action to perform (e.g., 'setCellAlignment', 'setCellPadding', 'setBorders', 'selectWholeTable').
- * @param {string} [params.scope] - Scope for operations ('cell', 'table'). Required for alignment, padding, borders.
- * @param {string} [params.alignment] - Vertical alignment value ('top', 'middle', 'bottom') for setCellAlignment.
- * @param {number} [params.padding] - Padding value in points for setCellPadding.
- * @param {number} [params.borderWidth] - Border width in points for setBorders. Use 0 to remove borders.
- * @param {string} [params.borderColor] - Border color hex string (e.g., '#000000') for setBorders. Defaults to black if width > 0.
- * @param {boolean} [params.showAlert=true] - Whether to show UI alerts. Defaults to true. Set to false for appHandler calls.
- * @returns {Object} Result object with success/error info.
+ * @param {Object} params - Operation parameters
+ * @param {string} params.action - The action to perform
+ * @param {string} [params.scope] - Scope for operations ('cell', 'table')
+ * @param {string} [params.alignment] - Alignment value
+ * @param {number} [params.padding] - Padding value in points
+ * @param {number} [params.borderWidth] - Border width in points
+ * @param {string} [params.borderColor] - Border color hex string
+ * @param {boolean} [params.showAlert=true] - Whether to show UI alerts
+ * @returns {Object} Result object with success/error info
  */
 function tableOps(params) {
 	const startTime = new Date().getTime();
-	// Default showAlert to true if not provided
 	const showAlert = (params.showAlert === undefined) ? true : params.showAlert;
 	let uiAlertMessage = null;
 
@@ -23,9 +22,10 @@ function tableOps(params) {
 			throw new Error('No action specified for tableOps');
 		}
 
-		// getTableContext might not be needed for all actions, or might have different requirements
-		// For example, selectWholeTable might work if a table is selected, not just cursor in cell.
-		const context = getTableContext(params.action === 'selectWholeTable');
+		// Get table context - some actions like selectWholeTable work with table selection
+		const allowTableSelection = params.action === 'selectWholeTable' || params.action === 'openTableOptions';
+		const context = getTableContext(allowTableSelection);
+
 		if (!context.success) {
 			throw new Error(context.error);
 		}
@@ -49,37 +49,47 @@ function tableOps(params) {
 
 			case 'selectWholeTable':
 				result = selectWholeTable(context, startTime);
-				// No UI alert for selection, it's a visual change.
+				// No UI alert for selection - it's a visual change
+				break;
+
+			case 'openTableOptions':
+				result = openTableOptions(context, startTime);
+				uiAlertMessage = result.message;
 				break;
 
 			default:
 				throw new Error(`Unknown table action: ${params.action}`);
 		}
 
+		// Show success alert if enabled and we have a message
 		if (result.success && uiAlertMessage && showAlert) {
 			DocumentApp.getUi().alert('✅ Table Control', uiAlertMessage, DocumentApp.getUi().ButtonSet.OK);
 		}
+
 		return result;
 
 	} catch (error) {
 		const errorResult = {
 			success: false,
 			error: error.toString(),
-			message: error.message || 'An error occurred. Please ensure your cursor is inside a table cell for most operations.',
+			message: error.message || 'Please ensure your cursor is inside a table cell for most operations.',
 			executionTime: new Date().getTime() - startTime
 		};
-		Logger.log(`Error in tableOps (action: ${params.action}): ${error.message}\n${error.stack ? error.stack : ''}`);
+
+		Logger.log(`Error in tableOps (action: ${params.action}): ${error.message}`);
+
 		if (showAlert) {
 			DocumentApp.getUi().alert('❌ Table Control Error', errorResult.message, DocumentApp.getUi().ButtonSet.OK);
 		}
+
 		return errorResult;
 	}
 }
 
 /**
- * Get table context (table, cell, cursor info).
- * @param {boolean} allowTableSelectionOnly - If true, allows context even if only a table is selected (no cursor in cell).
- * @returns {Object} Context object or error.
+ * Get table context (table, cell, cursor info)
+ * @param {boolean} allowTableSelectionOnly - If true, allows context even if only a table is selected
+ * @returns {Object} Context object or error
  */
 function getTableContext(allowTableSelectionOnly = false) {
 	try {
@@ -89,39 +99,41 @@ function getTableContext(allowTableSelectionOnly = false) {
 
 		let table, tableCell = null, tableRow = null;
 
+		// First try to get table from cursor position
 		if (cursor) {
 			let element = cursor.getElement();
-			if (!element) return { success: false, error: 'No element found at cursor position.' };
+			if (element) {
+				let currentElement = element;
+				let attempts = 0;
+				const maxAttempts = 10;
 
-			let currentElement = element;
-			let attempts = 0;
-			const maxAttempts = 10;
+				// Traverse up to find table cell
+				while (currentElement && currentElement.getType() !== DocumentApp.ElementType.TABLE_CELL && attempts < maxAttempts) {
+					currentElement = currentElement.getParent();
+					attempts++;
+				}
 
-			while (currentElement && currentElement.getType() !== DocumentApp.ElementType.TABLE_CELL && attempts < maxAttempts) {
-				currentElement = currentElement.getParent();
-				attempts++;
-			}
-
-			if (currentElement && currentElement.getType() === DocumentApp.ElementType.TABLE_CELL) {
-				tableCell = currentElement.asTableCell();
-				tableRow = tableCell.getParent().asTableRow();
-				table = tableRow.getParent().asTable();
+				if (currentElement && currentElement.getType() === DocumentApp.ElementType.TABLE_CELL) {
+					tableCell = currentElement.asTableCell();
+					tableRow = tableCell.getParent().asTableRow();
+					table = tableRow.getParent().asTable();
+				}
 			}
 		}
 
-		// If no table found via cursor, or if allowed, check selection
-		if ((!table || allowTableSelectionOnly) && selection) {
+		// If no table found via cursor and table selection is allowed, check selection
+		if (!table && allowTableSelectionOnly && selection) {
 			const rangeElements = selection.getRangeElements();
 			if (rangeElements.length === 1 && rangeElements[0].getElement().getType() === DocumentApp.ElementType.TABLE) {
-				const selectedTable = rangeElements[0].getElement().asTable();
-				if (!table) table = selectedTable; // Prioritize cursor-based table, but use selected if no cursor one
-				// If table was already found by cursor, and selection is the same table, it's fine.
-				// If different, it's ambiguous, but usually cursor is more specific.
+				table = rangeElements[0].getElement().asTable();
 			}
 		}
 
 		if (!table) {
-			return { success: false, error: 'Cursor is not inside a table cell, nor is a table selected. Please click inside a table or select a table.' };
+			return {
+				success: false,
+				error: 'Cursor is not inside a table cell, nor is a table selected. Please click inside a table or select a table.'
+			};
 		}
 
 		return {
@@ -134,17 +146,15 @@ function getTableContext(allowTableSelectionOnly = false) {
 
 	} catch (error) {
 		Logger.log('Error in getTableContext: ' + error.message);
-		return { success: false, error: 'Failed to get table context: ' + error.message };
+		return {
+			success: false,
+			error: 'Failed to get table context: ' + error.message
+		};
 	}
 }
 
 /**
- * Set cell content vertical alignment.
- * @param {Object} context - Table context.
- * @param {string} scope - 'cell' or 'table'.
- * @param {string} alignment - 'top', 'middle', or 'bottom'.
- * @param {number} startTime - Start time for execution tracking.
- * @returns {Object} Result.
+ * Set cell content vertical alignment
  */
 function setCellAlignment(context, scope, alignment, startTime) {
 	if (!context || !context.table) throw new Error('Invalid table context for setCellAlignment.');
@@ -157,6 +167,7 @@ function setCellAlignment(context, scope, alignment, startTime) {
 		'middle': DocumentApp.VerticalAlignment.CENTER,
 		'bottom': DocumentApp.VerticalAlignment.BOTTOM
 	};
+
 	const verticalAlignment = alignmentMap[alignment];
 	let cellsUpdated = 0;
 
@@ -184,12 +195,7 @@ function setCellAlignment(context, scope, alignment, startTime) {
 }
 
 /**
- * Set cell padding.
- * @param {Object} context - Table context.
- * @param {string} scope - 'cell' or 'table'.
- * @param {number} padding - Padding in points.
- * @param {number} startTime - Start time for execution tracking.
- * @returns {Object} Result.
+ * Set cell padding
  */
 function setCellPadding(context, scope, padding, startTime) {
 	if (!context || !context.table) throw new Error('Invalid table context for setCellPadding.');
@@ -219,6 +225,7 @@ function setCellPadding(context, scope, padding, startTime) {
 			}
 		}
 	}
+
 	const scopeText = scope === 'cell' ? 'selected cell' : `all ${cellsUpdated} cells in the table`;
 	return {
 		success: true,
@@ -228,13 +235,7 @@ function setCellPadding(context, scope, padding, startTime) {
 }
 
 /**
- * Sets borders for a table. Individual cell border styling is not directly supported.
- * @param {Object} context - Table context.
- * @param {string} scope - Must be 'table'. 'cell' scope is not supported for distinct borders.
- * @param {number} borderWidth - Border width in points. Use 0 to remove borders.
- * @param {string} [borderColor] - Border color hex string. Defaults to black ('#000000') if borderWidth > 0.
- * @param {number} startTime - Start time for execution tracking.
- * @returns {Object} Result object.
+ * Set table borders
  */
 function setBorders(context, scope, borderWidth, borderColor, startTime) {
 	if (!context || !context.table) throw new Error('Invalid table context for setBorders.');
@@ -247,8 +248,6 @@ function setBorders(context, scope, borderWidth, borderColor, startTime) {
 	if (borderWidth > 0 && effectiveBorderColor) {
 		context.table.setBorderColor(effectiveBorderColor);
 	} else if (borderWidth === 0) {
-		// When removing borders, explicitly setting color to null ensures it doesn't retain old color
-		// though setBorderWidth(0) should be sufficient.
 		context.table.setBorderColor(null);
 	}
 
@@ -265,10 +264,7 @@ function setBorders(context, scope, borderWidth, borderColor, startTime) {
 }
 
 /**
- * Selects the entire table containing the cursor or the currently selected table.
- * @param {Object} context - Table context.
- * @param {number} startTime - Start time for execution tracking.
- * @returns {Object} Result object.
+ * Select the entire table
  */
 function selectWholeTable(context, startTime) {
 	if (!context || !context.table) throw new Error('Could not identify the table to select.');
@@ -278,7 +274,26 @@ function selectWholeTable(context, startTime) {
 
 	return {
 		success: true,
-		message: 'Table selected.', // This message won't show via UI alert by default
+		message: 'Table selected.',
+		executionTime: new Date().getTime() - startTime
+	};
+}
+
+/**
+ * Open table options (simulates right-click > Table options)
+ * Note: This is a workaround since we can't actually trigger the native menu
+ */
+function openTableOptions(context, startTime) {
+	if (!context || !context.table) throw new Error('Could not identify the table for options.');
+
+	// Since we can't actually open the native table options dialog,
+	// we'll select the table and show a helpful message
+	const doc = context.doc;
+	doc.setSelection(doc.newRange().addElement(context.table).build());
+
+	return {
+		success: true,
+		message: 'Table selected. Right-click the table to access native table options.',
 		executionTime: new Date().getTime() - startTime
 	};
 }
