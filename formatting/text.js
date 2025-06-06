@@ -307,15 +307,15 @@ function getStyleInfoWithAlert(context, startTime) {
 			`Total ${headingName} paragraphs: ${matchingCount}`,
 			``,
 			`Text Formatting:`,
-			`Font: ${textAttributes[DocumentApp.Attribute.FONT_FAMILY] || 'Default'}`,
-			`Size: ${textAttributes[DocumentApp.Attribute.FONT_SIZE] || 'Default'}`,
+			`Font: ${textAttributes[DocumentApp.Attribute.FONT_FAMILY]}`,
+			`Size: ${textAttributes[DocumentApp.Attribute.FONT_SIZE]}`,
 			`Bold: ${textAttributes[DocumentApp.Attribute.BOLD] ? 'Yes' : 'No'}`,
 			`Italic: ${textAttributes[DocumentApp.Attribute.ITALIC] ? 'Yes' : 'No'}`,
-			`Color: ${textAttributes[DocumentApp.Attribute.FOREGROUND_COLOR] || 'Default'}`,
+			`Color: ${textAttributes[DocumentApp.Attribute.FOREGROUND_COLOR]}`,
 			``,
 			`Paragraph Formatting:`,
-			`Alignment: ${paragraphAttributes[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT] || 'Default'}`,
-			`Line Spacing: ${paragraphAttributes[DocumentApp.Attribute.LINE_SPACING] || 'Default'}`
+			`Alignment: ${paragraphAttributes[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT]}`,
+			`Line Spacing: ${paragraphAttributes[DocumentApp.Attribute.LINE_SPACING]}`
 		].join('\n');
 
 		DocumentApp.getUi().alert('Current Paragraph Style Info:\n\n' + info);
