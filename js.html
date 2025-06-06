@@ -92,6 +92,29 @@
 				});
 		},
 
+		// Text operations - handles all text functions
+		textOps: (payload) => {
+			console.log('Text operation requested:', payload);
+
+			if (!payload?.action) {
+				console.error('No text action specified');
+				sendResponse('textOps', false, 'No text action specified');
+				return;
+			}
+
+			// Call the global textOps function with the full payload
+			google.script.run
+				.withSuccessHandler((response) => {
+					console.log('Text operation result:', response);
+					sendResponse('textOps', true, null, response);
+				})
+				.withFailureHandler((error) => {
+					console.error('Failed text operation:', error);
+					sendResponse('textOps', false, error.toString());
+				})
+				.textOpsHtml(payload);
+		},
+
 		// Enhanced table operations - handles all new table functions
 		tableOps: (payload) => {
 			console.log('Table operation requested:', payload);
@@ -135,7 +158,8 @@
 			'http://localhost:5173',
 			'https://pipewriter.io',
 			'https://pipewriter.vercel.app',
-			'https://app-pipewriter.vercel.app'
+			'https://app-pipewriter.vercel.app',
+			'https://app.pipewriter.io'
 		];
 
 		if (!allowedOrigins.includes(event.origin)) {

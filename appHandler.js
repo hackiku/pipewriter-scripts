@@ -91,6 +91,21 @@ var appHandler = (function () {
 			}
 		},
 
+		// Text operations
+		'textOps': function (payload, callback) {
+			try {
+				if (!payload || !payload.action) {
+					throw new Error('No text action specified in payload');
+				}
+
+				// Call textOps directly with the payload - no UI alerts in production
+				const result = textOps(payload);
+				callback(null, result);
+			} catch (error) {
+				handleError(error, callback);
+			}
+		},
+
 		// Style operations
 		'getStyleTemplate': function (payload, callback) {
 			try {

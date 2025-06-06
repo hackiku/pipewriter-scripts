@@ -1,103 +1,350 @@
-// textOps.gs
-
-// Style guide template IDs
-const STYLE_TEMPLATES = {
-	'style-minimal': { light: 'style-minimal', dark: 'style-minimal-dark' },
-	'style-detailed': { light: 'style-detailed', dark: 'style-detailed-dark' }
-};
+// formatting/text.js - Text operations for wireframing app
 
 /**
- * Get style guide template from master doc
- * @param {Object} params - Parameters for style template
- * @param {string} params.templateId - Template ID ('style-minimal' or 'style-detailed')
- * @param {string} params.theme - Theme ('light' or 'dark')
- * @returns {Object} Response with success/error and optional table
+ * Main text operations function
+ * @param {Object} params - Operation parameters
+ * @param {string} params.action - The action to perform ('applyStyle', 'updateAllMatching', 'getStyleInfo')
+ * @param {string} [params.headingType] - Heading type for applyStyle ('NORMAL', 'HEADING1'-'HEADING6')
+ * @returns {Object} Result object with success/error info
  */
-
-function getStyleTemplate(params = {}) {
+function textOps(params) {
 	const startTime = new Date().getTime();
 
 	try {
-		const { templateId = 'style-minimal', theme = 'light' } = params;
-		Logger.log(`Getting style template: ${templateId} (${theme})`);
-
-		// Validate inputs
-		if (!STYLE_TEMPLATES[templateId]) {
-			throw new Error(`Invalid template ID: ${templateId}`);
+		if (!params || !params.action) {
+			throw new Error('No action specified for textOps');
 		}
 
-		if (!['light', 'dark'].includes(theme)) {
-			throw new Error(`Invalid theme: ${theme}`);
+		const context = getTextContext();
+		if (!context.success) {
+			throw new Error(context.error);
 		}
 
-		// Get template ID based on theme
-		const targetId = STYLE_TEMPLATES[templateId][theme];
+		let result;
+		switch (params.action) {
+			case 'applyStyle':
+				result = applyTextStyle(context, params.headingType, startTime);
+				break;
 
-		// Get table from master doc using existing infrastructure 
-		const table = getElementFromMaster(targetId, theme);
+			case 'updateAllMatching':
+				result = updateAllMatchingHeadings(context, startTime);
+				break;
 
-		if (!table) {
-			throw new Error(`Template ${targetId} not found`);
+			case 'getStyleInfo':
+				result = getStyleInfo(context, startTime);
+				break;
+
+			default:
+				throw new Error(`Unknown text action: ${params.action}`);
 		}
 
-		// Insert at cursor position using existing helper
-		const inserted = insertElementTable(table);
-		if (!inserted) {
-			throw new Error('Failed to insert style guide');
+		return result;
+
+	} catch (error) {
+		const errorResult = {
+			success: false,
+			error: error.toString(),
+			message: error.message || 'Please place cursor in document.',
+			executionTime: new Date().getTime() - startTime
+		};
+
+		Logger.log(`Error in textOps (action: ${params.action}): ${error.message}`);
+		return errorResult;
+	}
+}
+
+/**
+ * Get text context (paragraph, cursor, selection info)
+ * @returns {Object} Context object or error
+ */
+function getTextContext() {
+	try {
+		const doc = DocumentApp.getActiveDocument();
+		const cursor = doc.getCursor();
+		const selection = doc.getSelection();
+
+		let paragraph = null;
+		let textElement = null;
+		let contextType = 'none';
+
+		// Try cursor first
+		if (cursor) {
+			const element = cursor.getElement();
+			if (element.getType() === DocumentApp.ElementType.TEXT) {
+				paragraph = element.getParent().asParagraph();
+				textElement = element.asText();
+				contextType = 'cursor';
+			} else if (element.getType() === DocumentApp.ElementType.PARAGRAPH) {
+				paragraph = element.asParagraph();
+				// Get first text element in paragraph for styling
+				if (paragraph.getNumChildren() > 0) {
+					const firstChild = paragraph.getChild(0);
+					if (firstChild.getType() === DocumentApp.ElementType.TEXT) {
+						textElement = firstChild.asText();
+					}
+				}
+				contextType = 'cursor';
+			}
+		}
+
+		// Fallback to selection
+		if (!paragraph && selection) {
+			const rangeElements = selection.getRangeElements();
+			if (rangeElements.length > 0) {
+				const element = rangeElements[0].getElement();
+				if (element.getType() === DocumentApp.ElementType.TEXT) {
+					paragraph = element.getParent().asParagraph();
+					textElement = element.asText();
+					contextType = 'selection';
+				} else if (element.getType() === DocumentApp.ElementType.PARAGRAPH) {
+					paragraph = element.asParagraph();
+					if (paragraph.getNumChildren() > 0) {
+						const firstChild = paragraph.getChild(0);
+						if (firstChild.getType() === DocumentApp.ElementType.TEXT) {
+							textElement = firstChild.asText();
+						}
+					}
+					contextType = 'selection';
+				}
+			}
+		}
+
+		if (!paragraph) {
+			return {
+				success: false,
+				error: 'No cursor or selection found. Please place cursor in text.'
+			};
 		}
 
 		return {
 			success: true,
-			templateId: targetId,
-			theme,
-			executionTime: new Date().getTime() - startTime
+			paragraph: paragraph,
+			textElement: textElement,
+			cursor: cursor,
+			selection: selection,
+			contextType: contextType,
+			doc: doc
 		};
 
 	} catch (error) {
-		Logger.log('Error in getStyleTemplate:', error);
 		return {
 			success: false,
-			error: error.toString(),
-			executionTime: new Date().getTime() - startTime
+			error: 'Failed to get text context: ' + error.message
 		};
 	}
 }
 
-// Testing utilities for IDE development
-function testStyleTemplate() {
-	// Test light minimal
-	Logger.log('\nTesting light minimal:');
-	Logger.log(getStyleTemplate({
-		templateId: 'style-minimal',
-		theme: 'light'
-	}));
+/**
+ * Apply text style to current paragraph
+ */
+function applyTextStyle(context, headingType, startTime) {
+	try {
+		const headingMap = {
+			'NORMAL': DocumentApp.ParagraphHeading.NORMAL,
+			'HEADING1': DocumentApp.ParagraphHeading.HEADING1,
+			'HEADING2': DocumentApp.ParagraphHeading.HEADING2,
+			'HEADING3': DocumentApp.ParagraphHeading.HEADING3,
+			'HEADING4': DocumentApp.ParagraphHeading.HEADING4,
+			'HEADING5': DocumentApp.ParagraphHeading.HEADING5,
+			'HEADING6': DocumentApp.ParagraphHeading.HEADING6
+		};
 
-	// Test dark minimal
-	Logger.log('\nTesting dark minimal:');
-	Logger.log(getStyleTemplate({
-		templateId: 'style-minimal',
-		theme: 'dark'
-	}));
+		const heading = headingMap[headingType];
+		if (heading === undefined) {
+			throw new Error(`Invalid heading type: ${headingType}`);
+		}
 
-	// Test light detailed
-	Logger.log('\nTesting light detailed:');
-	Logger.log(getStyleTemplate({
-		templateId: 'style-detailed',
-		theme: 'light'
-	}));
+		context.paragraph.setHeading(heading);
 
-	// Test error case
-	Logger.log('\nTesting invalid template:');
-	Logger.log(getStyleTemplate({
-		templateId: 'invalid',
-		theme: 'light'
-	}));
+		return {
+			success: true,
+			message: `Applied ${getHeadingDisplayName(heading)} style`,
+			headingType: headingType,
+			executionTime: new Date().getTime() - startTime
+		};
+
+	} catch (error) {
+		throw new Error(`Failed to apply text style: ${error.message}`);
+	}
 }
 
-// Menu integration helper
-function insertStyleGuide() {
-	return getStyleTemplate({
-		templateId: 'style-minimal',
-		theme: 'light'
+/**
+ * Update all matching headings to match current paragraph style
+ */
+function updateAllMatchingHeadings(context, startTime) {
+	try {
+		const sourceParagraph = context.paragraph;
+		const sourceHeading = sourceParagraph.getHeading();
+
+		if (sourceHeading === DocumentApp.ParagraphHeading.NORMAL) {
+			throw new Error('Current paragraph is Normal text. Please select a heading to use as template.');
+		}
+
+		// Get ALL formatting from the source paragraph's text
+		let sourceTextAttributes = {};
+		let sourceParagraphAttributes = {};
+
+		// Get text attributes from the first text element
+		if (context.textElement) {
+			sourceTextAttributes = getAllTextAttributes(context.textElement);
+		}
+
+		// Get paragraph-level attributes
+		sourceParagraphAttributes = cleanNullAttributes(sourceParagraph.getAttributes());
+
+		// Find all matching headings
+		const body = context.doc.getBody();
+		const allParagraphs = body.getParagraphs();
+		const matchingParagraphs = allParagraphs.filter(p =>
+			p.getHeading() === sourceHeading && p !== sourceParagraph
+		);
+
+		// Apply updates to each matching paragraph
+		let updated = 0;
+		matchingParagraphs.forEach(paragraph => {
+			// Apply paragraph-level attributes
+			paragraph.setAttributes(sourceParagraphAttributes);
+
+			// Apply text-level attributes to all text in the paragraph
+			if (Object.keys(sourceTextAttributes).length > 0) {
+				const text = paragraph.editAsText();
+				if (text.getText().length > 0) {
+					text.setAttributes(0, text.getText().length - 1, sourceTextAttributes);
+				}
+			}
+			updated++;
+		});
+
+		// Update document-wide heading style definition
+		const combinedAttributes = { ...sourceParagraphAttributes, ...sourceTextAttributes };
+		body.setHeadingAttributes(sourceHeading, combinedAttributes);
+
+		const headingName = getHeadingDisplayName(sourceHeading);
+
+		return {
+			success: true,
+			message: `Updated ${updated} matching ${headingName} paragraphs to match selected style`,
+			updatedCount: updated,
+			executionTime: new Date().getTime() - startTime
+		};
+
+	} catch (error) {
+		throw new Error(`Failed to update matching headings: ${error.message}`);
+	}
+}
+
+/**
+ * Get current paragraph style information (for debugging/development)
+ */
+function getStyleInfo(context, startTime) {
+	try {
+		const paragraph = context.paragraph;
+		const heading = paragraph.getHeading();
+		const text = paragraph.getText().substring(0, 50) + (paragraph.getText().length > 50 ? '...' : '');
+
+		// Get both paragraph and text attributes
+		let textAttributes = {};
+		if (context.textElement) {
+			textAttributes = getAllTextAttributes(context.textElement);
+		}
+
+		const paragraphAttributes = paragraph.getAttributes();
+		const headingName = getHeadingDisplayName(heading);
+
+		// Count matching paragraphs
+		const body = context.doc.getBody();
+		const allParagraphs = body.getParagraphs();
+		const matchingCount = allParagraphs.filter(p => p.getHeading() === heading).length;
+
+		const info = [
+			`Text: "${text}"`,
+			`Style: ${headingName}`,
+			`Total ${headingName} paragraphs: ${matchingCount}`,
+			``,
+			`Text Formatting:`,
+			`Font: ${textAttributes[DocumentApp.Attribute.FONT_FAMILY] || 'Default'}`,
+			`Size: ${textAttributes[DocumentApp.Attribute.FONT_SIZE] || 'Default'}`,
+			`Bold: ${textAttributes[DocumentApp.Attribute.BOLD] ? 'Yes' : 'No'}`,
+			`Italic: ${textAttributes[DocumentApp.Attribute.ITALIC] ? 'Yes' : 'No'}`,
+			`Color: ${textAttributes[DocumentApp.Attribute.FOREGROUND_COLOR] || 'Default'}`,
+			``,
+			`Paragraph Formatting:`,
+			`Alignment: ${paragraphAttributes[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT] || 'Default'}`,
+			`Line Spacing: ${paragraphAttributes[DocumentApp.Attribute.LINE_SPACING] || 'Default'}`
+		].join('\n');
+
+		DocumentApp.getUi().alert('Current Paragraph Style Info:\n\n' + info);
+
+		return {
+			success: true,
+			message: 'Style info displayed',
+			textAttributes: textAttributes,
+			paragraphAttributes: paragraphAttributes,
+			executionTime: new Date().getTime() - startTime
+		};
+
+	} catch (error) {
+		throw new Error(`Failed to get style info: ${error.message}`);
+	}
+}
+
+/**
+ * Get all text attributes from text element
+ */
+function getAllTextAttributes(textElement) {
+	const attributes = {};
+
+	// Get all possible text attributes
+	const textAttrs = textElement.getAttributes();
+
+	// Include all non-null attributes
+	const textAttributeKeys = [
+		DocumentApp.Attribute.FONT_FAMILY,
+		DocumentApp.Attribute.FONT_SIZE,
+		DocumentApp.Attribute.BOLD,
+		DocumentApp.Attribute.ITALIC,
+		DocumentApp.Attribute.UNDERLINE,
+		DocumentApp.Attribute.STRIKETHROUGH,
+		DocumentApp.Attribute.FOREGROUND_COLOR,
+		DocumentApp.Attribute.BACKGROUND_COLOR,
+		DocumentApp.Attribute.LINK_URL
+	];
+
+	textAttributeKeys.forEach(attr => {
+		const value = textAttrs[attr];
+		if (value !== null && value !== undefined) {
+			attributes[attr] = value;
+		}
 	});
+
+	return attributes;
+}
+
+/**
+ * Clean null attributes from object
+ */
+function cleanNullAttributes(attributes) {
+	const cleaned = {};
+	for (const attr in attributes) {
+		if (attributes[attr] !== null && attributes[attr] !== undefined) {
+			cleaned[attr] = attributes[attr];
+		}
+	}
+	return cleaned;
+}
+
+/**
+ * Get display name for heading type
+ */
+function getHeadingDisplayName(heading) {
+	const headingNames = {
+		[DocumentApp.ParagraphHeading.NORMAL]: 'Normal text',
+		[DocumentApp.ParagraphHeading.HEADING1]: 'Heading 1',
+		[DocumentApp.ParagraphHeading.HEADING2]: 'Heading 2',
+		[DocumentApp.ParagraphHeading.HEADING3]: 'Heading 3',
+		[DocumentApp.ParagraphHeading.HEADING4]: 'Heading 4',
+		[DocumentApp.ParagraphHeading.HEADING5]: 'Heading 5',
+		[DocumentApp.ParagraphHeading.HEADING6]: 'Heading 6'
+	};
+	return headingNames[heading] || 'Unknown';
 }

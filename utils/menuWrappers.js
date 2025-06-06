@@ -29,6 +29,46 @@ function menuInsertCards3() {
 }
 
 // =============================================================================
+// TEXT OPERATIONS WRAPPERS (formatting/text.js)
+// =============================================================================
+
+function menuApplyNormal() {
+	return textOps({ action: 'applyStyle', headingType: 'NORMAL' });
+}
+
+function menuApplyHeading1() {
+	return textOps({ action: 'applyStyle', headingType: 'HEADING1' });
+}
+
+function menuApplyHeading2() {
+	return textOps({ action: 'applyStyle', headingType: 'HEADING2' });
+}
+
+function menuApplyHeading3() {
+	return textOps({ action: 'applyStyle', headingType: 'HEADING3' });
+}
+
+function menuApplyHeading4() {
+	return textOps({ action: 'applyStyle', headingType: 'HEADING4' });
+}
+
+function menuApplyHeading5() {
+	return textOps({ action: 'applyStyle', headingType: 'HEADING5' });
+}
+
+function menuApplyHeading6() {
+	return textOps({ action: 'applyStyle', headingType: 'HEADING6' });
+}
+
+function menuUpdateAllMatching() {
+	return textOps({ action: 'updateAllMatching' });
+}
+
+function menuGetStyleInfo() {
+	return textOps({ action: 'getStyleInfo' });
+}
+
+// =============================================================================
 // HTML OPERATIONS WRAPPERS (ai/convertHtml.js)
 // =============================================================================
 

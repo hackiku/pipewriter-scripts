@@ -25,6 +25,23 @@ function onOpen() {
 
 		.addSeparator()
 
+		// Text Styling
+		.addSubMenu(ui.createMenu("📝 Text Styling")
+			.addItem("Normal Text", "menuApplyNormal")
+			.addItem("Heading 1", "menuApplyHeading1")
+			.addItem("Heading 2", "menuApplyHeading2")
+			.addItem("Heading 3", "menuApplyHeading3")
+			.addItem("Heading 4", "menuApplyHeading4")
+			.addItem("Heading 5", "menuApplyHeading5")
+			.addItem("Heading 6", "menuApplyHeading6")
+			.addSeparator()
+			.addItem("Update All Matching", "menuUpdateAllMatching")
+			.addSeparator()
+			.addItem("Get Style Info", "menuGetStyleInfo")
+		)
+
+		.addSeparator()
+
 		// Table Controls
 		.addSubMenu(ui.createMenu("📋 Table Controls")
 			.addItem("Select Whole Table", "menuSelectTable")
@@ -169,4 +186,21 @@ function tableOpsHtml(params) {
 
 	// Call the existing tableOps function
 	return tableOps(cleanParams);
+}
+
+// Global wrapper for text operations HTML service calls
+function textOpsHtml(params) {
+	// Debug logging
+	Logger.log('textOpsHtml received: ' + JSON.stringify(params));
+
+	// Ensure parameters are properly structured
+	const cleanParams = {
+		action: params.action,
+		headingType: params.headingType
+	};
+
+	Logger.log('textOpsHtml cleaned: ' + JSON.stringify(cleanParams));
+
+	// Call the existing textOps function
+	return textOps(cleanParams);
 }
