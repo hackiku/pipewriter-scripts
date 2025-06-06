@@ -64,8 +64,29 @@ function menuUpdateAllMatching() {
 	return textOps({ action: 'updateAllMatching' });
 }
 
+// Menu version shows alert popup (for dropdown submenu)
 function menuGetStyleInfo() {
-	return textOps({ action: 'getStyleInfo' });
+	const startTime = new Date().getTime();
+
+	try {
+		const context = getTextContext();
+		if (!context.success) {
+			throw new Error(context.error);
+		}
+
+		// Call the version WITH alert
+		return getStyleInfoWithAlert(context, startTime);
+	} catch (error) {
+		const errorResult = {
+			success: false,
+			error: error.toString(),
+			message: error.message || 'Please place cursor in document.',
+			executionTime: new Date().getTime() - startTime
+		};
+
+		Logger.log(`Error in menuGetStyleInfo: ${error.message}`);
+		return errorResult;
+	}
 }
 
 // =============================================================================

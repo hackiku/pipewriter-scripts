@@ -31,7 +31,8 @@ function textOps(params) {
 				break;
 
 			case 'getStyleInfo':
-				result = getStyleInfo(context, startTime);
+				// For app use - returns data without UI alert
+				result = getStyleInfoForApp(context, startTime);
 				break;
 
 			default:
@@ -234,9 +235,52 @@ function updateAllMatchingHeadings(context, startTime) {
 }
 
 /**
- * Get current paragraph style information (for debugging/development)
+ * Get current paragraph style information FOR APP USE (no UI alert)
+ * Returns proper data structure for Svelte app
  */
-function getStyleInfo(context, startTime) {
+function getStyleInfoForApp(context, startTime) {
+	try {
+		const paragraph = context.paragraph;
+		const heading = paragraph.getHeading();
+		const text = paragraph.getText().substring(0, 50) + (paragraph.getText().length > 50 ? '...' : '');
+
+		// Get both paragraph and text attributes
+		let textAttributes = {};
+		if (context.textElement) {
+			textAttributes = getAllTextAttributes(context.textElement);
+		}
+
+		const paragraphAttributes = cleanNullAttributes(paragraph.getAttributes());
+		const headingName = getHeadingDisplayName(heading);
+
+		// Count matching paragraphs
+		const body = context.doc.getBody();
+		const allParagraphs = body.getParagraphs();
+		const matchingCount = allParagraphs.filter(p => p.getHeading() === heading).length;
+
+		// Return structured data for app consumption
+		return {
+			success: true,
+			message: 'Style info retrieved',
+			textAttributes: textAttributes,
+			paragraphAttributes: paragraphAttributes,
+			heading: heading, // Return the actual heading enum for proper mapping
+			headingName: headingName,
+			text: text,
+			matchingCount: matchingCount,
+			executionTime: new Date().getTime() - startTime
+		};
+
+	} catch (error) {
+		throw new Error(`Failed to get style info: ${error.message}`);
+	}
+}
+
+/**
+ * Get current paragraph style information WITH UI ALERT (for menu use)
+ * Shows the alert like the working bound script
+ */
+function getStyleInfoWithAlert(context, startTime) {
 	try {
 		const paragraph = context.paragraph;
 		const heading = paragraph.getHeading();
@@ -256,6 +300,7 @@ function getStyleInfo(context, startTime) {
 		const allParagraphs = body.getParagraphs();
 		const matchingCount = allParagraphs.filter(p => p.getHeading() === heading).length;
 
+		// Build and show the alert (like the working bound script)
 		const info = [
 			`Text: "${text}"`,
 			`Style: ${headingName}`,
@@ -289,33 +334,44 @@ function getStyleInfo(context, startTime) {
 }
 
 /**
- * Get all text attributes from text element
+ * Get all text attributes from text element (improved from working script)
  */
 function getAllTextAttributes(textElement) {
 	const attributes = {};
 
-	// Get all possible text attributes
-	const textAttrs = textElement.getAttributes();
+	try {
+		// Get all possible text attributes
+		const textAttrs = textElement.getAttributes();
 
-	// Include all non-null attributes
-	const textAttributeKeys = [
-		DocumentApp.Attribute.FONT_FAMILY,
-		DocumentApp.Attribute.FONT_SIZE,
-		DocumentApp.Attribute.BOLD,
-		DocumentApp.Attribute.ITALIC,
-		DocumentApp.Attribute.UNDERLINE,
-		DocumentApp.Attribute.STRIKETHROUGH,
-		DocumentApp.Attribute.FOREGROUND_COLOR,
-		DocumentApp.Attribute.BACKGROUND_COLOR,
-		DocumentApp.Attribute.LINK_URL
-	];
+		// Include all non-null attributes with better null checking
+		const textAttributeKeys = [
+			DocumentApp.Attribute.FONT_FAMILY,
+			DocumentApp.Attribute.FONT_SIZE,
+			DocumentApp.Attribute.BOLD,
+			DocumentApp.Attribute.ITALIC,
+			DocumentApp.Attribute.UNDERLINE,
+			DocumentApp.Attribute.STRIKETHROUGH,
+			DocumentApp.Attribute.FOREGROUND_COLOR,
+			DocumentApp.Attribute.BACKGROUND_COLOR,
+			DocumentApp.Attribute.LINK_URL
+		];
 
-	textAttributeKeys.forEach(attr => {
-		const value = textAttrs[attr];
-		if (value !== null && value !== undefined) {
-			attributes[attr] = value;
-		}
-	});
+		textAttributeKeys.forEach(attr => {
+			try {
+				const value = textAttrs[attr];
+				// Only include non-null, non-undefined values
+				if (value !== null && value !== undefined) {
+					attributes[attr] = value;
+				}
+			} catch (attrError) {
+				// Skip attributes that can't be read
+				Logger.log(`Could not read attribute ${attr}: ${attrError}`);
+			}
+		});
+
+	} catch (error) {
+		Logger.log('Error getting text attributes: ' + error);
+	}
 
 	return attributes;
 }
