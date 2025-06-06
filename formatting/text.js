@@ -3,7 +3,7 @@
 /**
  * Main text operations function
  * @param {Object} params - Operation parameters
- * @param {string} params.action - The action to perform ('applyStyle', 'updateAllMatching', 'getStyleInfo', 'getAllStyles')
+ * @param {string} params.action - The action to perform ('applyStyle', 'updateAllMatching', 'getStyleInfo')
  * @param {string} [params.headingType] - Heading type for applyStyle ('NORMAL', 'HEADING1'-'HEADING6')
  * @returns {Object} Result object with success/error info
  */
@@ -33,11 +33,6 @@ function textOps(params) {
 			case 'getStyleInfo':
 				// For app use - returns data without UI alert
 				result = getStyleInfoForApp(context, startTime);
-				break;
-
-			case 'getAllStyles':
-				// For app use - returns all document styles
-				result = getAllDocumentStyles(context, startTime);
 				break;
 
 			default:
@@ -267,79 +262,17 @@ function getStyleInfoForApp(context, startTime) {
 		return {
 			success: true,
 			message: 'Style info retrieved',
-			data: {
-				textAttributes: textAttributes,
-				paragraphAttributes: paragraphAttributes,
-				heading: heading, // Return the actual heading enum for proper mapping
-				headingName: headingName,
-				text: text,
-				matchingCount: matchingCount
-			},
+			textAttributes: textAttributes,
+			paragraphAttributes: paragraphAttributes,
+			heading: heading, // Return the actual heading enum for proper mapping
+			headingName: headingName,
+			text: text,
+			matchingCount: matchingCount,
 			executionTime: new Date().getTime() - startTime
 		};
 
 	} catch (error) {
 		throw new Error(`Failed to get style info: ${error.message}`);
-	}
-}
-
-/**
- * Get all document styles FOR APP USE
- * Scans document and returns style info for all heading types found
- */
-function getAllDocumentStyles(context, startTime) {
-	try {
-		const body = context.doc.getBody();
-		const allParagraphs = body.getParagraphs();
-		const stylesFound = new Map();
-
-		// Scan all paragraphs to find unique heading types
-		allParagraphs.forEach(paragraph => {
-			const heading = paragraph.getHeading();
-			const headingKey = heading.toString();
-
-			// Skip if we already have this heading type
-			if (stylesFound.has(headingKey)) {
-				return;
-			}
-
-			// Get text attributes from first text element
-			let textAttributes = {};
-			if (paragraph.getNumChildren() > 0) {
-				const firstChild = paragraph.getChild(0);
-				if (firstChild.getType() === DocumentApp.ElementType.TEXT) {
-					textAttributes = getAllTextAttributes(firstChild.asText());
-				}
-			}
-
-			// Get paragraph attributes
-			const paragraphAttributes = cleanNullAttributes(paragraph.getAttributes());
-			const headingName = getHeadingDisplayName(heading);
-
-			// Store this style
-			stylesFound.set(headingKey, {
-				textAttributes: textAttributes,
-				paragraphAttributes: paragraphAttributes,
-				heading: heading,
-				headingName: headingName,
-				text: paragraph.getText().substring(0, 50) + (paragraph.getText().length > 50 ? '...' : '')
-			});
-		});
-
-		// Convert map to array
-		const styles = Array.from(stylesFound.values());
-
-		return {
-			success: true,
-			message: `Found ${styles.length} unique text styles`,
-			data: {
-				styles: styles
-			},
-			executionTime: new Date().getTime() - startTime
-		};
-
-	} catch (error) {
-		throw new Error(`Failed to get all document styles: ${error.message}`);
 	}
 }
 
@@ -367,22 +300,22 @@ function getStyleInfoWithAlert(context, startTime) {
 		const allParagraphs = body.getParagraphs();
 		const matchingCount = allParagraphs.filter(p => p.getHeading() === heading).length;
 
-		// Build and show the alert with proper default handling
+		// Build and show the alert (like the working bound script)
 		const info = [
 			`Text: "${text}"`,
 			`Style: ${headingName}`,
 			`Total ${headingName} paragraphs: ${matchingCount}`,
 			``,
 			`Text Formatting:`,
-			`Font: ${textAttributes[DocumentApp.Attribute.FONT_FAMILY] || 'Default'}`,
-			`Size: ${textAttributes[DocumentApp.Attribute.FONT_SIZE] || 'Default'}`,
+			`Font: ${textAttributes[DocumentApp.Attribute.FONT_FAMILY]}`,
+			`Size: ${textAttributes[DocumentApp.Attribute.FONT_SIZE]}`,
 			`Bold: ${textAttributes[DocumentApp.Attribute.BOLD] ? 'Yes' : 'No'}`,
 			`Italic: ${textAttributes[DocumentApp.Attribute.ITALIC] ? 'Yes' : 'No'}`,
-			`Color: ${textAttributes[DocumentApp.Attribute.FOREGROUND_COLOR] || 'Default'}`,
+			`Color: ${textAttributes[DocumentApp.Attribute.FOREGROUND_COLOR]}`,
 			``,
 			`Paragraph Formatting:`,
-			`Alignment: ${paragraphAttributes[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT] || 'Default'}`,
-			`Line Spacing: ${paragraphAttributes[DocumentApp.Attribute.LINE_SPACING] || 'Default'}`
+			`Alignment: ${paragraphAttributes[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT]}`,
+			`Line Spacing: ${paragraphAttributes[DocumentApp.Attribute.LINE_SPACING]}`
 		].join('\n');
 
 		DocumentApp.getUi().alert('Current Paragraph Style Info:\n\n' + info);
