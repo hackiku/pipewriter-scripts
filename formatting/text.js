@@ -3,7 +3,7 @@
 /**
  * Main text operations function
  * @param {Object} params - Operation parameters
- * @param {string} params.action - The action to perform ('applyStyle', 'updateAllMatching', 'getStyleInfo')
+ * @param {string} params.action - The action to perform ('applyStyle', 'updateAllMatching', 'getStyleInfo', 'getAllStyles')
  * @param {string} [params.headingType] - Heading type for applyStyle ('NORMAL', 'HEADING1'-'HEADING6')
  * @returns {Object} Result object with success/error info
  */
@@ -33,6 +33,11 @@ function textOps(params) {
 			case 'getStyleInfo':
 				// For app use - returns data without UI alert
 				result = getStyleInfoForApp(context, startTime);
+				break;
+
+			case 'getAllStyles':
+				// NEW: Get all styles used in the document
+				result = getAllDocumentStylesForApp(context, startTime);
 				break;
 
 			default:
@@ -236,43 +241,151 @@ function updateAllMatchingHeadings(context, startTime) {
 
 /**
  * Get current paragraph style information FOR APP USE (no UI alert)
- * Returns proper data structure for Svelte app
+ * Returns proper data structure for Svelte app with PROPER STYLE EXTRACTION
  */
 function getStyleInfoForApp(context, startTime) {
 	try {
 		const paragraph = context.paragraph;
 		const heading = paragraph.getHeading();
 		const text = paragraph.getText().substring(0, 50) + (paragraph.getText().length > 50 ? '...' : '');
+		const body = context.doc.getBody();
 
-		// Get both paragraph and text attributes
-		let textAttributes = {};
-		if (context.textElement) {
-			textAttributes = getAllTextAttributes(context.textElement);
-		}
-
+		// ENHANCED: Get the actual applied formatting by combining document-level and text-level attributes
+		let textAttributes = getEffectiveTextAttributes(paragraph, context.textElement, body);
 		const paragraphAttributes = cleanNullAttributes(paragraph.getAttributes());
 		const headingName = getHeadingDisplayName(heading);
 
 		// Count matching paragraphs
-		const body = context.doc.getBody();
 		const allParagraphs = body.getParagraphs();
 		const matchingCount = allParagraphs.filter(p => p.getHeading() === heading).length;
 
-		// Return structured data for app consumption
+		// Return structured data for app consumption with proper attributes
 		return {
 			success: true,
 			message: 'Style info retrieved',
-			textAttributes: textAttributes,
-			paragraphAttributes: paragraphAttributes,
-			heading: heading, // Return the actual heading enum for proper mapping
-			headingName: headingName,
-			text: text,
-			matchingCount: matchingCount,
+			data: {
+				textAttributes: textAttributes,
+				paragraphAttributes: paragraphAttributes,
+				heading: heading, // Return the actual heading enum for proper mapping
+				headingName: headingName,
+				text: text,
+				matchingCount: matchingCount
+			},
 			executionTime: new Date().getTime() - startTime
 		};
 
 	} catch (error) {
 		throw new Error(`Failed to get style info: ${error.message}`);
+	}
+}
+
+/**
+ * NEW: Get all styles used in the document FOR APP USE
+ * Scans all paragraphs and returns unique heading styles with their attributes
+ */
+function getAllDocumentStylesForApp(context, startTime) {
+	try {
+		const body = context.doc.getBody();
+		const allParagraphs = body.getParagraphs();
+		const uniqueStyles = new Map();
+
+		// Scan all paragraphs to find unique heading types
+		allParagraphs.forEach((paragraph, index) => {
+			const heading = paragraph.getHeading();
+			const headingKey = heading.toString();
+
+			// Skip if we've already processed this heading type
+			if (uniqueStyles.has(headingKey)) {
+				return;
+			}
+
+			// Get the first text element for this paragraph type
+			let textElement = null;
+			if (paragraph.getNumChildren() > 0) {
+				const firstChild = paragraph.getChild(0);
+				if (firstChild.getType() === DocumentApp.ElementType.TEXT) {
+					textElement = firstChild.asText();
+				}
+			}
+
+			// Get effective text attributes for this heading type
+			const textAttributes = getEffectiveTextAttributes(paragraph, textElement, body);
+			const paragraphAttributes = cleanNullAttributes(paragraph.getAttributes());
+			const headingName = getHeadingDisplayName(heading);
+			const sampleText = paragraph.getText().substring(0, 30) + (paragraph.getText().length > 30 ? '...' : '');
+
+			// Count all paragraphs of this heading type
+			const matchingCount = allParagraphs.filter(p => p.getHeading() === heading).length;
+
+			uniqueStyles.set(headingKey, {
+				textAttributes: textAttributes,
+				paragraphAttributes: paragraphAttributes,
+				heading: heading,
+				headingName: headingName,
+				sampleText: sampleText,
+				matchingCount: matchingCount
+			});
+		});
+
+		// Convert Map to Array for return
+		const stylesArray = Array.from(uniqueStyles.values());
+
+		return {
+			success: true,
+			message: `Found ${stylesArray.length} unique text styles in document`,
+			data: {
+				styles: stylesArray,
+				totalParagraphs: allParagraphs.length
+			},
+			executionTime: new Date().getTime() - startTime
+		};
+
+	} catch (error) {
+		throw new Error(`Failed to get all document styles: ${error.message}`);
+	}
+}
+
+/**
+ * NEW: Get effective text attributes by combining document-level heading styles with text-level overrides
+ * This solves the "undefined" attribute problem by getting the actual applied formatting
+ */
+function getEffectiveTextAttributes(paragraph, textElement, body) {
+	const heading = paragraph.getHeading();
+	let effectiveAttributes = {};
+
+	try {
+		// Step 1: Get document-level heading attributes (the base style)
+		const documentHeadingAttributes = body.getHeadingAttributes(heading);
+		if (documentHeadingAttributes) {
+			effectiveAttributes = { ...cleanNullAttributes(documentHeadingAttributes) };
+		}
+
+		// Step 2: Get text-level attributes (overrides) if we have a text element
+		if (textElement) {
+			const textLevelAttributes = getAllTextAttributes(textElement);
+			// Merge text-level attributes over document-level (text-level takes precedence)
+			effectiveAttributes = { ...effectiveAttributes, ...textLevelAttributes };
+		}
+
+		// Step 3: Clean up and format for consistent API response
+		const cleanedAttributes = {};
+
+		// Map DocumentApp.Attribute keys to string keys for consistent API
+		Object.keys(effectiveAttributes).forEach(key => {
+			const value = effectiveAttributes[key];
+			if (value !== null && value !== undefined) {
+				// Convert attribute enum to string if needed
+				const stringKey = key.toString();
+				cleanedAttributes[stringKey] = value;
+			}
+		});
+
+		return cleanedAttributes;
+
+	} catch (error) {
+		Logger.log('Error getting effective text attributes: ' + error);
+		// Fallback to just text-level attributes if document-level fails
+		return textElement ? getAllTextAttributes(textElement) : {};
 	}
 }
 
@@ -285,37 +398,33 @@ function getStyleInfoWithAlert(context, startTime) {
 		const paragraph = context.paragraph;
 		const heading = paragraph.getHeading();
 		const text = paragraph.getText().substring(0, 50) + (paragraph.getText().length > 50 ? '...' : '');
+		const body = context.doc.getBody();
 
-		// Get both paragraph and text attributes
-		let textAttributes = {};
-		if (context.textElement) {
-			textAttributes = getAllTextAttributes(context.textElement);
-		}
-
+		// ENHANCED: Use the new effective attributes function
+		const textAttributes = getEffectiveTextAttributes(paragraph, context.textElement, body);
 		const paragraphAttributes = paragraph.getAttributes();
 		const headingName = getHeadingDisplayName(heading);
 
 		// Count matching paragraphs
-		const body = context.doc.getBody();
 		const allParagraphs = body.getParagraphs();
 		const matchingCount = allParagraphs.filter(p => p.getHeading() === heading).length;
 
-		// Build and show the alert (like the working bound script)
+		// Build and show the alert with ACTUAL formatting info
 		const info = [
 			`Text: "${text}"`,
 			`Style: ${headingName}`,
 			`Total ${headingName} paragraphs: ${matchingCount}`,
 			``,
 			`Text Formatting:`,
-			`Font: ${textAttributes[DocumentApp.Attribute.FONT_FAMILY]}`,
-			`Size: ${textAttributes[DocumentApp.Attribute.FONT_SIZE]}`,
+			`Font: ${textAttributes[DocumentApp.Attribute.FONT_FAMILY] || 'Default'}`,
+			`Size: ${textAttributes[DocumentApp.Attribute.FONT_SIZE] || 'Default'}`,
 			`Bold: ${textAttributes[DocumentApp.Attribute.BOLD] ? 'Yes' : 'No'}`,
 			`Italic: ${textAttributes[DocumentApp.Attribute.ITALIC] ? 'Yes' : 'No'}`,
-			`Color: ${textAttributes[DocumentApp.Attribute.FOREGROUND_COLOR]}`,
+			`Color: ${textAttributes[DocumentApp.Attribute.FOREGROUND_COLOR] || 'Default'}`,
 			``,
 			`Paragraph Formatting:`,
-			`Alignment: ${paragraphAttributes[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT]}`,
-			`Line Spacing: ${paragraphAttributes[DocumentApp.Attribute.LINE_SPACING]}`
+			`Alignment: ${paragraphAttributes[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT] || 'Default'}`,
+			`Line Spacing: ${paragraphAttributes[DocumentApp.Attribute.LINE_SPACING] || 'Default'}`
 		].join('\n');
 
 		DocumentApp.getUi().alert('Current Paragraph Style Info:\n\n' + info);
