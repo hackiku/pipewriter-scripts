@@ -259,18 +259,16 @@ function getStyleInfoForApp(context, startTime) {
 		const allParagraphs = body.getParagraphs();
 		const matchingCount = allParagraphs.filter(p => p.getHeading() === heading).length;
 
-		// Return structured data for app consumption with proper attributes
+		// Return structured data for app consumption with proper attributes (data at top level for Svelte compatibility)
 		return {
 			success: true,
 			message: 'Style info retrieved',
-			data: {
-				textAttributes: textAttributes,
-				paragraphAttributes: paragraphAttributes,
-				heading: heading, // Return the actual heading enum for proper mapping
-				headingName: headingName,
-				text: text,
-				matchingCount: matchingCount
-			},
+			textAttributes: textAttributes,
+			paragraphAttributes: paragraphAttributes,
+			heading: heading, // Return the actual heading enum for proper mapping
+			headingName: headingName,
+			text: text,
+			matchingCount: matchingCount,
 			executionTime: new Date().getTime() - startTime
 		};
 
@@ -327,16 +325,14 @@ function getAllDocumentStylesForApp(context, startTime) {
 			});
 		});
 
-		// Convert Map to Array for return
+		// Convert Map to Array for return (data at top level for Svelte compatibility)
 		const stylesArray = Array.from(uniqueStyles.values());
 
 		return {
 			success: true,
 			message: `Found ${stylesArray.length} unique text styles in document`,
-			data: {
-				styles: stylesArray,
-				totalParagraphs: allParagraphs.length
-			},
+			styles: stylesArray,
+			totalParagraphs: allParagraphs.length,
 			executionTime: new Date().getTime() - startTime
 		};
 
@@ -367,16 +363,15 @@ function getEffectiveTextAttributes(paragraph, textElement, body) {
 			effectiveAttributes = { ...effectiveAttributes, ...textLevelAttributes };
 		}
 
-		// Step 3: Clean up and format for consistent API response
+		// Step 3: Clean up and ensure proper formatting for API response
 		const cleanedAttributes = {};
 
-		// Map DocumentApp.Attribute keys to string keys for consistent API
+		// Handle both enum keys and string keys properly
 		Object.keys(effectiveAttributes).forEach(key => {
 			const value = effectiveAttributes[key];
 			if (value !== null && value !== undefined) {
-				// Convert attribute enum to string if needed
-				const stringKey = key.toString();
-				cleanedAttributes[stringKey] = value;
+				// Use the key as-is (DocumentApp.Attribute enums work fine as object keys)
+				cleanedAttributes[key] = value;
 			}
 		});
 
