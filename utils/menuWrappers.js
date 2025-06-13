@@ -105,6 +105,11 @@ function menuDropHtmlClipboard() {
 	return dropHtml({ copyToClipboard: true });
 }
 
+// NEW: Download HTML File wrapper
+function menuDownloadHtmlFile() {
+	return downloadHtmlFile();
+}
+
 function menuStripHtmlTags() {
 	return stripHtml({ all: false });
 }

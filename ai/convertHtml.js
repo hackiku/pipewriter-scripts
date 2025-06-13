@@ -317,6 +317,343 @@ function copyHtmlToClipboard(content) {
   return true;
 }
 
+/**
+ * NEW: Download HTML content as a complete HTML file
+ * Generates a complete HTML document with the wireframe content
+ */
+function downloadHtmlFile() {
+  const body = DocumentApp.getActiveDocument().getBody();
+  const startTime = new Date().getTime();
+  
+  try {
+    // Get filtered paragraphs (same logic as dropHtml)
+    const htmlParagraphs = body.getParagraphs()
+      .filter(para => para.getHeading() !== DocumentApp.ParagraphHeading.NORMAL)
+      .map(para => {
+        const level = para.getHeading();
+        let text = para.getText().trim();
+        
+        if (text && HEADING_MAP[level]) {
+          // First check if it's a comment
+          const isComment = COMMENT_PATTERNS.some(pattern => pattern.test(text));
+          if (isComment) {
+            return {
+              text: convertToReactComment(text),
+              level,
+              addSpace: HEADING_MAP[level].addSpace,
+              isComment: true
+            };
+          }
+          
+          // If not a comment, proceed with HTML tags
+          const { prefix, suffix, addSpace } = HEADING_MAP[level];
+          return {
+            text: prefix + text + suffix,
+            level,
+            addSpace,
+            isComment: false
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    if (htmlParagraphs.length === 0) {
+      DocumentApp.getUi().alert('No HTML content found to download. Please add some heading content first.');
+      return {
+        success: false,
+        error: 'No HTML content found',
+        executionTime: new Date().getTime() - startTime
+      };
+    }
+
+    // Generate complete HTML document
+    const htmlContent = htmlParagraphs.map(p => p.text).join('\n');
+    const docTitle = DocumentApp.getActiveDocument().getName() || 'wireframe';
+    
+    const completeHtml = generateCompleteHtmlDocument(htmlContent, docTitle);
+    
+    // Show download dialog
+    return showDownloadDialog(completeHtml, docTitle);
+
+  } catch (error) {
+    Logger.log('Error in downloadHtmlFile:', error);
+    return {
+      success: false,
+      error: error.toString(),
+      executionTime: new Date().getTime() - startTime
+    };
+  }
+}
+
+/**
+ * Generate a complete HTML document with CSS and structure
+ */
+function generateCompleteHtmlDocument(htmlContent, title) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+    <style>
+        /* Pipewriter Wireframe Styles */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        
+        h1, h2, h3 {
+            color: #333;
+            margin-top: 2em;
+            margin-bottom: 1em;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 0.3em;
+        }
+        
+        h2 {
+            font-size: 2em;
+            color: #495057;
+        }
+        
+        h3 {
+            font-size: 1.5em;
+            color: #6c757d;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        label {
+            display: inline-block;
+            background-color: #e9ecef;
+            padding: 8px 16px;
+            border-radius: 4px;
+            margin: 5px;
+            color: #495057;
+            font-weight: 500;
+        }
+        
+        p {
+            color: #6c757d;
+            margin: 1em 0;
+        }
+        
+        /* Comment styles */
+        .comment {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            color: #856404;
+            font-style: italic;
+        }
+        
+        /* Wireframe indication */
+        .wireframe-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .wireframe-header h1 {
+            margin: 0;
+            border: none;
+            color: white;
+        }
+        
+        .wireframe-footer {
+            margin-top: 40px;
+            padding: 20px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wireframe-header">
+        <h1>🎯 ${title}</h1>
+        <p>Wireframe generated by Pipewriter</p>
+    </div>
+    
+    <main>
+${htmlContent}
+    </main>
+    
+    <div class="wireframe-footer">
+        <p>Generated on ${new Date().toLocaleDateString()} • Made with Pipewriter for Google Docs</p>
+    </div>
+</body>
+</html>`;
+}
+
+/**
+ * Show download dialog with the HTML file
+ */
+function showDownloadDialog(htmlContent, filename) {
+  const escapedContent = htmlContent.replace(/'/g, "\\'").replace(/\n/g, "\\n");
+  const safeFilename = filename.replace(/[^a-zA-Z0-9-_]/g, '_');
+  
+  const html = HtmlService.createHtmlOutput(`
+    <style>
+      body { 
+        font-family: Arial, sans-serif; 
+        padding: 15px; 
+        line-height: 1.5;
+      }
+      .preview {
+        background: #f5f5f5; 
+        padding: 15px; 
+        border-radius: 4px;
+        margin: 15px 0;
+        max-height: 200px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-size: 12px;
+        border: 1px solid #ddd;
+      }
+      .download-button {
+        background: #4285f4;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 10px 5px;
+        display: inline-block;
+      }
+      .download-button:hover {
+        background: #3b78e7;
+      }
+      .success-message {
+        background: #d4edda;
+        color: #155724;
+        padding: 10px;
+        border-radius: 4px;
+        margin: 10px 0;
+        display: none;
+      }
+      .instructions {
+        background: #e2e6ea;
+        padding: 10px;
+        border-radius: 4px;
+        margin: 10px 0;
+        font-size: 14px;
+        color: #383d41;
+      }
+      .filename-info {
+        font-weight: bold;
+        color: #495057;
+        margin: 10px 0;
+      }
+    </style>
+
+    <h3>📄 Download HTML File</h3>
+    
+    <div class="filename-info">
+      File: ${safeFilename}.html
+    </div>
+    
+    <div class="instructions">
+      Click the download button below to save your wireframe as a complete HTML file. The file includes styling and is ready to view in any web browser.
+    </div>
+    
+    <button class="download-button" onclick="downloadHtml()">
+      📥 Download HTML File
+    </button>
+    
+    <div class="success-message" id="success">
+      ✅ Download started! Check your downloads folder.
+    </div>
+    
+    <h4>Preview:</h4>
+    <div class="preview">${htmlContent.replace(/</g, '&lt;').replace(/>/g, '&gt;').substring(0, 1000)}${htmlContent.length > 1000 ? '...' : ''}</div>
+
+    <script>
+      function downloadHtml() {
+        try {
+          // Create the complete HTML content
+          const htmlContent = '${escapedContent}';
+          const filename = '${safeFilename}.html';
+          
+          // Create blob and download
+          const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+          const url = window.URL.createObjectURL(blob);
+          
+          // Create download link
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          a.style.display = 'none';
+          
+          // Trigger download
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          
+          // Clean up
+          window.URL.revokeObjectURL(url);
+          
+          // Show success message
+          document.getElementById('success').style.display = 'block';
+          
+          // Update button
+          const btn = document.querySelector('.download-button');
+          const originalText = btn.innerHTML;
+          btn.innerHTML = '✅ Downloaded!';
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+          }, 2000);
+          
+        } catch (error) {
+          console.error('Download failed:', error);
+          alert('Download failed. Please try again or contact support.');
+        }
+      }
+    </script>
+  `)
+  .setWidth(600)
+  .setHeight(500);
+  
+  DocumentApp.getUi().showModalDialog(html, 'Download HTML File');
+  
+  return {
+    success: true,
+    message: 'Download dialog opened',
+    filename: safeFilename + '.html'
+  };
+}
+
 
 // function copyHtmlToClipboard() {
 //   // const result = generateHtml();

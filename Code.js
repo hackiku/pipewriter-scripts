@@ -106,11 +106,12 @@ function onOpen() {
 
 		.addSeparator()
 
-		// HTML Operations
+		// HTML Operations - UPDATED to include Download HTML File
 		.addSubMenu(ui.createMenu("🔧 HTML Export")
 			.addItem("HTML to Start ↑", "menuDropHtmlStart")
 			.addItem("HTML to End ↓", "menuDropHtmlEnd")
 			.addItem("HTML to Clipboard", "menuDropHtmlClipboard")
+			.addItem("Download HTML File", "menuDownloadHtmlFile")
 			.addSeparator()
 			.addItem("Strip HTML Tags", "menuStripHtmlTags")
 			.addItem("Delete All HTML", "menuStripHtmlAll")
