@@ -1,5 +1,5 @@
 {
-	"timeZone": "Europe/Sofia",
+	"timeZone": "Etc/UTC",
 	"dependencies": {
 		"enabledAdvancedServices": [
 			{
@@ -13,6 +13,7 @@
 	"runtimeVersion": "V8",
 	"oauthScopes": [
 		"https://www.googleapis.com/auth/documents",
+		"https://www.googleapis.com/auth/documents.currentonly",
 		"https://www.googleapis.com/auth/script.container.ui"
 	]
 }

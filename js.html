@@ -92,6 +92,43 @@
 				});
 		},
 
+		// NEW: Download HTML File
+		downloadHtmlFile: (payload) => {
+			google.script.run
+				.withSuccessHandler((response) => {
+					console.log('Download HTML file result:', response);
+					sendResponse('downloadHtmlFile', true, null, response);
+				})
+				.withFailureHandler((error) => {
+					console.error('Failed to download HTML file:', error);
+					sendResponse('downloadHtmlFile', false, error.toString());
+				})
+				.downloadHtmlFile();
+		},
+
+		// NEW: Drop Prompt
+		dropPrompt: (payload) => {
+			if (!payload?.promptContent) {
+				console.error('No prompt content provided');
+				sendResponse('dropPrompt', false, 'No prompt content provided');
+				return;
+			}
+
+			google.script.run
+				.withSuccessHandler((response) => {
+					console.log('Drop prompt result:', response);
+					sendResponse('dropPrompt', true, null, response);
+				})
+				.withFailureHandler((error) => {
+					console.error('Failed to drop prompt:', error);
+					sendResponse('dropPrompt', false, error.toString());
+				})
+				.dropPrompt({
+					promptContent: payload.promptContent,
+					promptTitle: payload.promptTitle
+				});
+		},
+
 		// Text operations - handles all text functions
 		textOps: (payload) => {
 			console.log('Text operation requested:', payload);
